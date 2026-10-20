@@ -519,7 +519,6 @@ export async function GET(req: NextRequest) {
     lines: 165,
     tags: ["TMDB Client", "Key Rotation", "freekeys", "Rate-limit handling"],
     code: `const TMDB_KEYS = [
-  "e547e17d4e91f3e62a571655cd1ccaff",
   "fb7bb23f03b6994dafc674c074d01761",
   "e55425032d3d0f371fc776f302e7c09b",
   "8301a21598f8b45668d5711a814f01f6",
