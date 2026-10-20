@@ -1,5 +1,6 @@
 // AniMovie (github.com/Parthakashyap/AniMovie) TMDB API Engine
-// Uses active verified rotating public key pool + user-specified key
+// Prefers the server-side /api/tmdb proxy (private key stays in Netlify env vars),
+// falling back to the rotating public key pool
 export const TMDB_KEYS = [
   "fb7bb23f03b6994dafc674c074d01761", // Active verified 200 OK
   "e55425032d3d0f371fc776f302e7c09b", // Active verified 200 OK
@@ -18,7 +19,6 @@ export const TMDB_KEYS = [
   "af6887753365e14160254ac7f4345dd2", // Active verified 200 OK
   "06f10fc8741a672af455421c239a1ffc", // Active verified 200 OK
   "09ad8ace66eec34302943272db0e8d2c", // Active verified 200 OK
-  "e547e17d4e91f3e62a571655cd1ccaff", // User provided key (fallback)
 ];
 
 const API = "https://api.themoviedb.org/3";
@@ -52,7 +52,23 @@ export function tmdbLogo(path: string | null | undefined): string {
   return tmdbImage(path, "w500");
 }
 
+let proxyAvailable = true;
+
 export async function tmdbGet<T>(path: string, params: Record<string, string> = {}): Promise<T> {
+  if (proxyAvailable) {
+    try {
+      const res = await fetch(`/api/tmdb${path}?${new URLSearchParams(params)}`, {
+        signal: AbortSignal.timeout(8000),
+      });
+      const isJson = res.headers.get("content-type")?.includes("application/json");
+      if (res.ok && isJson) return (await res.json()) as T;
+      if (res.status === 404 && isJson) throw new Error(`TMDB HTTP 404 for ${path}`);
+      if (!isJson || res.status === 503) proxyAvailable = false;
+    } catch (err: any) {
+      if (err?.message?.startsWith("TMDB HTTP 404")) throw err;
+    }
+  }
+
   let attempts = 0;
   let lastErr = "";
 
