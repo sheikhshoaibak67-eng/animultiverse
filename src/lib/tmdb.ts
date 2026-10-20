@@ -1,31 +1,8 @@
 // AniMovie (github.com/Parthakashyap/AniMovie) TMDB API Engine
-// Uses active verified rotating public key pool + user-specified key
-export const TMDB_KEYS = [
-  "fb7bb23f03b6994dafc674c074d01761", // Active verified 200 OK
-  "e55425032d3d0f371fc776f302e7c09b", // Active verified 200 OK
-  "8301a21598f8b45668d5711a814f01f6", // Active verified 200 OK
-  "8cf43ad9c085135b9479ad5cf6bbcbda", // Active verified 200 OK
-  "da63548086e399ffc910fbc08526df05", // Active verified 200 OK
-  "13e53ff644a8bd4ba37b3e1044ad24f3", // Active verified 200 OK
-  "269890f657dddf4635473cf4cf456576", // Active verified 200 OK
-  "a2f888b27315e62e471b2d587048f32e", // Active verified 200 OK
-  "8476a7ab80ad76f0936744df0430e67c", // Active verified 200 OK
-  "5622cafbfe8f8cfe358a29c53e19bba0", // Active verified 200 OK
-  "ae4bd1b6fce2a5648671bfc171d15ba4", // Active verified 200 OK
-  "257654f35e3dff105574f97fb4b97035", // Active verified 200 OK
-  "2f4038e83265214a0dcd6ec2eb3276f5", // Active verified 200 OK
-  "9e43f45f94705cc8e1d5a0400d19a7b7", // Active verified 200 OK
-  "af6887753365e14160254ac7f4345dd2", // Active verified 200 OK
-  "06f10fc8741a672af455421c239a1ffc", // Active verified 200 OK
-  "09ad8ace66eec34302943272db0e8d2c", // Active verified 200 OK
-  "e547e17d4e91f3e62a571655cd1ccaff", // User provided key (fallback)
-];
+// Requests are proxied through the /api/tmdb Netlify Function so no API key ships to the browser.
 
-const API = "https://api.themoviedb.org/3";
+const API = "/api/tmdb";
 const IMG = "https://image.tmdb.org/t/p";
-
-let currentKeyIndex = 0;
-const invalidKeyIndices = new Set<number>();
 
 export function tmdbImage(path: string | null | undefined, size = "w500"): string {
   if (!path) return "";
@@ -53,47 +30,14 @@ export function tmdbLogo(path: string | null | undefined): string {
 }
 
 export async function tmdbGet<T>(path: string, params: Record<string, string> = {}): Promise<T> {
-  let attempts = 0;
-  let lastErr = "";
-
-  while (attempts < TMDB_KEYS.length) {
-    if (invalidKeyIndices.size >= TMDB_KEYS.length) {
-      invalidKeyIndices.clear(); // Reset if all marked invalid
-    }
-    while (invalidKeyIndices.has(currentKeyIndex)) {
-      currentKeyIndex = (currentKeyIndex + 1) % TMDB_KEYS.length;
-    }
-
-    const keyIndexToTry = currentKeyIndex;
-    const key = TMDB_KEYS[keyIndexToTry];
-    currentKeyIndex = (currentKeyIndex + 1) % TMDB_KEYS.length;
-    attempts++;
-
-    const qs = new URLSearchParams({ api_key: key, ...params });
-    try {
-      const res = await fetch(`${API}${path}?${qs}`, {
-        signal: AbortSignal.timeout(6000),
-      });
-
-      if (res.status === 401) {
-        invalidKeyIndices.add(keyIndexToTry);
-        continue;
-      }
-      if (res.status === 429) {
-        continue;
-      }
-
-      if (!res.ok) {
-        throw new Error(`TMDB HTTP ${res.status} for ${path}`);
-      }
-
-      return (await res.json()) as T;
-    } catch (err: any) {
-      lastErr = err?.message || String(err);
-    }
+  const qs = new URLSearchParams(params);
+  const res = await fetch(`${API}${path}?${qs}`, {
+    signal: AbortSignal.timeout(8000),
+  });
+  if (!res.ok) {
+    throw new Error(`TMDB HTTP ${res.status} for ${path}`);
   }
-
-  throw new Error(`All TMDB rotating keys failed: ${lastErr}`);
+  return (await res.json()) as T;
 }
 
 /* --------------------------------- Types --------------------------------- */
