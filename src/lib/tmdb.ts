@@ -275,6 +275,35 @@ export async function getAggregateCredits(id: number, type: "tv" | "movie" = "tv
   return tmdbGet<TmdbAggregateCredits>(`/tv/${id}/aggregate_credits`);
 }
 
+export async function getVideos(id: number, type: "tv" | "movie" = "tv"): Promise<string | null> {
+  try {
+    const data = await tmdbGet<{
+      results: Array<{ key: string; site: string; type: string; official?: boolean }>;
+    }>(`/${type}/${id}/videos`);
+    const trailers = data.results || [];
+    const ytTrailer =
+      trailers.find((v) => v.site === "YouTube" && v.type === "Trailer" && v.official) ||
+      trailers.find((v) => v.site === "YouTube" && v.type === "Trailer") ||
+      trailers.find((v) => v.site === "YouTube" && v.type === "Teaser") ||
+      trailers.find((v) => v.site === "YouTube");
+    return ytTrailer ? ytTrailer.key : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function getRecommendations(
+  id: number,
+  type: "tv" | "movie" = "tv"
+): Promise<TmdbDiscoverItem[]> {
+  try {
+    const data = await tmdbGet<{ results: TmdbDiscoverItem[] }>(`/${type}/${id}/recommendations`);
+    return (data.results || []).filter((r) => r.poster_path).map((r) => ({ ...r, media_type: type }));
+  } catch {
+    return [];
+  }
+}
+
 /**
  * AniMovie transparent title logo fetcher:
  * Extracts high-resolution English/Japanese PNG logos (text without background) for overlay on hero backdrops.

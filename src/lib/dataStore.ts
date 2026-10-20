@@ -1,4 +1,4 @@
-import { initialCatalog, VIDEOS, DURATIONS } from "./catalog";
+import { initialCatalog, cartoonsCatalog, VIDEOS, DURATIONS } from "./catalog";
 import type { AnimeItem, SeasonItem, EpisodeItem, CastItem, AnimeBundle, EpisodeBundle } from "./types";
 import { getEpisodeOverview } from "./copy";
 import {
@@ -10,8 +10,30 @@ import {
   tmdbImage,
 } from "./tmdb";
 
+export const CARTOON_KEYWORDS = [
+  "doraemon", "shin-chan", "shinchan", "anpanman", "maruko", "sazae", "peppa",
+  "ben 10", "ben-10", "avatar", "tom and jerry", "tom-and-jerry", "mickey", "disney", "pixar",
+  "sponge", "paw patrol", "simpsons", "family guy", "futurama", "rick and morty", "rick-and-morty",
+  "south park", "adventure time", "adventure-time", "regular show", "gumball", "teen titans",
+  "teen-titans", "batman", "spider-man", "invincible", "arcane", "gravity falls",
+  "phineas", "scooby", "looney tunes", "courage the cowardly dog", "dexter", "powerpuff",
+  "chhota bheem", "motu patlu", "oggy"
+];
+
+export function isCartoon(item: { title: string; slug: string; genres?: string[]; category?: string }): boolean {
+  if (item.category === "cartoon") return true;
+  const s = item.slug.toLowerCase();
+  const t = item.title.toLowerCase();
+  return CARTOON_KEYWORDS.some((kw) => s.includes(kw) || t.includes(kw));
+}
+
+const allSeed = [
+  ...initialCatalog.map((s) => ({ ...s, category: "anime" as const })),
+  ...cartoonsCatalog.map((s) => ({ ...s, category: "cartoon" as const })),
+];
+
 // In-memory data store for the application
-let animeList: AnimeItem[] = initialCatalog.map((s) => ({
+export let animeList: AnimeItem[] = allSeed.map((s) => ({
   id: s.id,
   tmdbId: s.tmdbId,
   anilistId: s.anilistId,
@@ -31,8 +53,9 @@ let animeList: AnimeItem[] = initialCatalog.map((s) => ({
   totalEpisodes: s.episodeTitles.length,
   seasonCount: 1,
   views: s.views,
-  featured: s.featured,
+  featured: s.category === "anime" ? s.featured : false,
   trendRank: s.trend,
+  category: s.category,
 }));
 
 // Build seasons and episodes map
@@ -40,7 +63,7 @@ const seasonStore: Record<number, SeasonItem[]> = {};
 const episodeStore: Record<number, EpisodeItem[]> = {};
 const castStore: Record<number, CastItem[]> = {};
 
-initialCatalog.forEach((s) => {
+allSeed.forEach((s) => {
   seasonStore[s.id] = [
     {
       id: s.id * 10 + 1,
@@ -182,6 +205,8 @@ export async function loadLiveAniMovieTmdbCatalog(force = false): Promise<boolea
       if (!title) continue;
 
       const slug = title
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/^-+|-+$/g, "");
@@ -195,6 +220,8 @@ export async function loadLiveAniMovieTmdbCatalog(force = false): Promise<boolea
       const rating = Math.round((item.vote_average || 8.0) * 10) / 10;
       const views = Math.round((item.vote_count || 100) * 250 + (item.popularity || 50) * 500);
 
+      const isItemCartoon = isCartoon({ title, slug });
+
       if (existingIndex >= 0) {
         const current = animeList[existingIndex];
         current.title = title;
@@ -206,7 +233,8 @@ export async function loadLiveAniMovieTmdbCatalog(force = false): Promise<boolea
         current.rating = rating;
         current.year = year;
         current.views = views;
-        current.featured = i < 6;
+        current.category = isItemCartoon ? "cartoon" : "anime";
+        current.featured = !isItemCartoon && i < 6;
         current.trendRank = i + 1;
       } else {
         const newId = animeList.length + 500 + i;
@@ -230,7 +258,8 @@ export async function loadLiveAniMovieTmdbCatalog(force = false): Promise<boolea
           totalEpisodes: 24,
           seasonCount: 1,
           views,
-          featured: i < 6,
+          category: isItemCartoon ? "cartoon" : "anime",
+          featured: !isItemCartoon && i < 6,
           trendRank: i + 1,
         };
 
@@ -324,15 +353,38 @@ export function isTmdbLiveLoaded() {
 }
 
 export function getFeatured(): AnimeItem[] {
-  return animeList.filter((a) => a.featured).sort((a, b) => a.trendRank - b.trendRank);
+  // STRICTLY PURE ANIME ONLY! NEVER CARTOONS ON HERO!
+  const list = animeList
+    .filter((a) => a.featured && !isCartoon(a))
+    .sort((a, b) => a.trendRank - b.trendRank);
+
+  if (list.length >= 3) return list;
+
+  // Fallback to iconic pure anime titles
+  return animeList
+    .filter((a) => !isCartoon(a) && a.type !== "Movie")
+    .sort((a, b) => (b.views || 0) - (a.views || 0))
+    .slice(0, 6);
+}
+
+export function getCartoons(limit = 20): AnimeItem[] {
+  return animeList.filter((a) => isCartoon(a)).slice(0, limit);
 }
 
 export function getTrending(limit = 12): AnimeItem[] {
-  return [...animeList].sort((a, b) => a.trendRank - b.trendRank).slice(0, limit);
+  // Pure anime trending
+  return [...animeList]
+    .filter((a) => !isCartoon(a))
+    .sort((a, b) => a.trendRank - b.trendRank)
+    .slice(0, limit);
 }
 
 export function getTopRated(limit = 10): AnimeItem[] {
-  return [...animeList].sort((a, b) => b.rating - a.rating).slice(0, limit);
+  // Pure anime top rated
+  return [...animeList]
+    .filter((a) => !isCartoon(a))
+    .sort((a, b) => b.rating - a.rating)
+    .slice(0, limit);
 }
 
 export function getLatestEpisodes(limit = 12) {
@@ -411,8 +463,36 @@ export function getGenres(): string[] {
   return Array.from(new Set(animeList.flatMap((a) => a.genres))).sort();
 }
 
-export function getAnimeBySlug(slug: string): AnimeBundle | null {
-  const series = animeList.find((a) => a.slug === slug);
+export function findAnime(slugOrId: string): AnimeItem | null {
+  if (!slugOrId) return null;
+  const clean = slugOrId
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+  const rawId = clean.replace(/^(tv|movie)-?/, "");
+
+  return (
+    animeList.find(
+      (a) =>
+        a.slug === clean ||
+        String(a.tmdbId) === rawId ||
+        String(a.id) === rawId ||
+        a.slug === rawId ||
+        a.slug.replace(/-/g, "") === clean.replace(/-/g, "") ||
+        a.title
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-+|-+$/g, "") === clean ||
+        a.title.toLowerCase() === clean
+    ) || null
+  );
+}
+
+export function getAnimeBySlug(slugOrId: string): AnimeBundle | null {
+  const series = findAnime(slugOrId);
   if (!series) return null;
 
   // Asynchronously resolve TMDB transparent title logo if not yet populated
@@ -422,6 +502,53 @@ export function getAnimeBySlug(slug: string): AnimeBundle | null {
         if (logo) series.logoImage = logo;
       })
       .catch(() => {});
+  }
+
+  // Ensure seasons and episodes exist for this series
+  if (!seasonStore[series.id]) {
+    seasonStore[series.id] = [
+      {
+        id: series.id * 10 + 1,
+        animeId: series.id,
+        number: 1,
+        name: "Season 1",
+        poster: series.posterImage,
+        episodeCount: series.totalEpisodes || 12,
+        year: series.year,
+      },
+    ];
+  }
+
+  if (!episodeStore[series.id] || episodeStore[series.id].length === 0) {
+    const count = series.totalEpisodes || 12;
+    episodeStore[series.id] = Array.from({ length: count }, (_, j) => ({
+      id: series.id * 100 + j + 1,
+      animeId: series.id,
+      season: 1,
+      number: j + 1,
+      title: `Episode ${j + 1}`,
+      overview: `Episode ${j + 1} of ${series.title}. Streaming in high quality.`,
+      thumb: series.coverImage,
+      videoUrl: VIDEOS[j % VIDEOS.length],
+      duration: DURATIONS[j % DURATIONS.length],
+    }));
+  }
+
+  if (!castStore[series.id]) {
+    castStore[series.id] = [
+      {
+        id: series.id * 1000 + 1,
+        animeId: series.id,
+        tmdbPersonId: series.tmdbId,
+        name: "Voice Cast",
+        character: "Lead",
+        profileImage: series.posterImage,
+        sortOrder: 1,
+        episodeCount: series.totalEpisodes || 12,
+        role: "cast",
+        job: "",
+      },
+    ];
   }
 
   return {

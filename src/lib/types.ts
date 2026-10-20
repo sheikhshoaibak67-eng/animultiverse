@@ -20,6 +20,7 @@ export type AnimeItem = {
   views: number;
   featured: boolean;
   trendRank: number;
+  category?: "anime" | "cartoon";
 };
 
 export type SeasonItem = {

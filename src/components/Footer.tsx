@@ -23,7 +23,7 @@ export default function Footer({
               </span>
             </div>
             <p className="mt-4 max-w-sm text-xs sm:text-sm leading-relaxed text-zinc-400">
-              Free anime streaming experience with real TMDB metadata, transparent logos, multi-server playback (TG Server, VidStuck, VidSrc, AnimeWorld India), and local progress tracking.
+              Free anime streaming experience with real TMDB metadata, transparent logos, high-speed HD playback, and local progress tracking.
             </p>
             <div className="mt-4 flex gap-2">
               <button

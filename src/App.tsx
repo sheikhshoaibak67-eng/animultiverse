@@ -21,6 +21,8 @@ import DownloadButton from "./components/DownloadButton";
 import SearchExperience from "./components/SearchExperience";
 import BannerCard from "./components/BannerCard";
 import CodeExplorer from "./components/CodeExplorer";
+import TitleDetailPage from "./components/TitleDetailPage";
+import Top10TodayRow from "./components/Top10TodayRow";
 
 import {
   getFeatured,
@@ -34,10 +36,11 @@ import {
   getSimilar,
   getRandomSlug,
   getStats,
+  getCartoons,
   loadLiveAniMovieTmdbCatalog,
   isTmdbLiveLoaded,
 } from "./lib/dataStore";
-import { formatDuration, formatViews } from "./lib/utils";
+import { cn, formatDuration, formatViews } from "./lib/utils";
 import { getTagline } from "./lib/copy";
 import { readListItems, removeFromList, LIST_KEY } from "./lib/progress";
 import {
@@ -55,13 +58,49 @@ import {
   Ghost,
   BookmarkX,
   RefreshCw,
+  Film,
 } from "lucide-react";
 
+function parsePathRoute(): { tab: NavTab; slug: string } {
+  if (typeof window === "undefined") return { tab: "home", slug: "demon-slayer-kimetsu-no-yaiba" };
+  const p = window.location.pathname;
+  if (p.startsWith("/title/")) {
+    const raw = p.replace("/title/", "").trim();
+    if (raw === "tv-85937" || raw === "85937" || raw.includes("demon-slayer")) {
+      return { tab: "anime-detail" as NavTab, slug: "demon-slayer-kimetsu-no-yaiba" };
+    }
+    return { tab: "anime-detail" as NavTab, slug: raw };
+  }
+  if (p === "/browse" || p.startsWith("/browse")) return { tab: "browse", slug: "solo-leveling" };
+  if (p === "/search" || p.startsWith("/search")) return { tab: "search", slug: "solo-leveling" };
+  if (p === "/my-list" || p.startsWith("/my-list") || p === "/mylist") return { tab: "mylist", slug: "solo-leveling" };
+  return { tab: "home", slug: "demon-slayer-kimetsu-no-yaiba" };
+}
+
 export default function App() {
-  const [navTab, setNavTab] = useState<NavTab>("home");
+  const initialRoute = parsePathRoute();
+  const [navTab, setNavTab] = useState<NavTab>(initialRoute.tab);
   const [version, setVersion] = useState(0);
   const [isLiveTmdb, setIsLiveTmdb] = useState(isTmdbLiveLoaded());
   const [isSyncing, setIsSyncing] = useState(false);
+
+  // Detail & Watch state
+  const [selectedSlug, setSelectedSlug] = useState<string>(initialRoute.slug);
+  const [currentSeason, setCurrentSeason] = useState<number>(1);
+  const [currentEpisode, setCurrentEpisode] = useState<number>(1);
+
+  // Handle browser URL back/forward navigation
+  React.useEffect(() => {
+    const handlePopState = () => {
+      const r = parsePathRoute();
+      setNavTab(r.tab);
+      if (r.slug) {
+        setSelectedSlug(r.slug);
+      }
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
 
   // Hydrate live TMDB catalog on mount
   React.useEffect(() => {
@@ -94,11 +133,6 @@ export default function App() {
     setVersion((v) => v + 1);
   };
 
-  // Detail & Watch state
-  const [selectedSlug, setSelectedSlug] = useState<string>("solo-leveling");
-  const [currentSeason, setCurrentSeason] = useState<number>(1);
-  const [currentEpisode, setCurrentEpisode] = useState<number>(1);
-
   // Browse state
   const [browseGenre, setBrowseGenre] = useState<string>("");
   const [browseSort, setBrowseSort] = useState<string>("popular");
@@ -115,6 +149,26 @@ export default function App() {
   const genres = getGenres();
   const stats = getStats();
 
+  const cartoons = getCartoons(12);
+
+  // AniMovie Home Showcase Switcher
+  const [homeShowcase, setHomeShowcase] = useState<"all" | "movies" | "shonen" | "supernatural" | "cartoons">("all");
+  const showcaseItems = React.useMemo(() => {
+    if (homeShowcase === "movies") {
+      return allAnime.filter((a) => a.type === "Movie" && a.category !== "cartoon");
+    }
+    if (homeShowcase === "shonen") {
+      return allAnime.filter((a) => (a.genres.includes("Action") || a.genres.includes("Action & Adventure")) && a.category !== "cartoon");
+    }
+    if (homeShowcase === "supernatural") {
+      return allAnime.filter((a) => (a.genres.includes("Fantasy") || a.genres.includes("Supernatural") || a.genres.includes("Sci-Fi & Fantasy")) && a.category !== "cartoon");
+    }
+    if (homeShowcase === "cartoons") {
+      return getCartoons(24);
+    }
+    return allAnime.filter((a) => a.category !== "cartoon");
+  }, [allAnime, homeShowcase]);
+
   const toPosterItem = (a: any): PosterItem => ({
     slug: a.slug,
     title: a.title,
@@ -126,15 +180,37 @@ export default function App() {
 
   const handleSurprise = () => {
     const slug = getRandomSlug();
-    setSelectedSlug(slug);
-    setNavTab("anime-detail" as any);
+    handleOpenAnime(slug);
   };
 
-  const handleOpenAnime = (slug: string) => {
-    setSelectedSlug(slug);
+  const handleOpenAnime = (slugOrId: string) => {
+    let urlSlug = slugOrId;
+    if (
+      slugOrId === "demon-slayer-kimetsu-no-yaiba" ||
+      slugOrId === "85937" ||
+      slugOrId === "tv-85937"
+    ) {
+      urlSlug = "tv-85937";
+    } else if (/^\d+$/.test(slugOrId)) {
+      urlSlug = `tv-${slugOrId}`;
+    }
+
+    try {
+      window.history.pushState({}, "", `/title/${urlSlug}`);
+    } catch {}
+
+    setSelectedSlug(slugOrId);
     setCurrentSeason(1);
     setCurrentEpisode(1);
     setNavTab("anime-detail" as any);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleBackToCatalog = () => {
+    try {
+      window.history.pushState({}, "", "/");
+    } catch {}
+    setNavTab("home");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -158,7 +234,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#09090b] text-[#e4e4e7] selection:bg-brand selection:text-white">
-      {/* Top Navbar */}
+      {/* Top Navbar with AniMovie Live Search */}
       <Navbar
         activeTab={navTab}
         onTabChange={(tab) => {
@@ -166,6 +242,7 @@ export default function App() {
           window.scrollTo({ top: 0, behavior: "smooth" });
         }}
         onSurprise={handleSurprise}
+        onSelectAnime={handleOpenAnime}
       />
 
       {/* VIEW: HOME */}
@@ -241,29 +318,23 @@ export default function App() {
             <TrendingMarquee items={trending.map(toPosterItem)} onSelect={handleOpenAnime} />
           </div>
 
-          {/* Top Rated Anime with Rank Numbers */}
-          <div className="mt-4">
+          {/* Top 10 in Anime Today (AniMovie / Netflix Signature Feature) */}
+          <div className="mt-6">
             <SectionHeader
-              title="Top Rated Anime"
+              title="Top 10 in Anime Today"
               badge="Top 10"
               badgeColor="bg-amber-600"
-              subtitle="Highest rated anime of all time"
+              subtitle="The most-watched anime series ranked by daily viewership"
               icon={Trophy}
               onViewMore={() => {
                 setBrowseSort("rating");
                 setNavTab("browse");
               }}
             />
-            <PosterRow>
-              {topRated.map((a, i) => (
-                <div key={a.slug} className="relative w-[140px] shrink-0 sm:w-[155px] md:w-[170px]">
-                  <span className="absolute -left-1 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-lg bg-black/85 text-xs font-black text-white ring-1 ring-white/20">
-                    {i + 1}
-                  </span>
-                  <PosterCard item={toPosterItem(a)} onSelect={handleOpenAnime} className="w-full" />
-                </div>
-              ))}
-            </PosterRow>
+            <Top10TodayRow
+              items={trending.slice(0, 10).map(toPosterItem)}
+              onSelect={handleOpenAnime}
+            />
           </div>
 
           {/* New Simulcasts */}
@@ -310,18 +381,72 @@ export default function App() {
             </PosterRow>
           </div>
 
-          {/* All Anime Grid */}
-          <div className="mt-8">
-            <SectionHeader
-              title="All Anime Library"
-              badge={`${stats.series} Series`}
-              badgeColor="bg-zinc-700"
-              subtitle={`${stats.episodes} episodes • zero paywalls`}
-              icon={Library}
-              onViewMore={() => setNavTab("browse")}
-            />
-            <div className="grid grid-cols-2 gap-4 px-4 sm:grid-cols-3 sm:px-8 md:grid-cols-4 md:px-12 lg:grid-cols-5 xl:grid-cols-6 lg:px-16 xl:px-20">
-              {allAnime.slice(0, 18).map((a) => (
+          {/* SEPARATE DEDICATED CARTOONS SECTION ("cartoon section alage") */}
+          {cartoons.length > 0 && (
+            <div className="mt-8">
+              <SectionHeader
+                title="Cartoons & Animated Classics"
+                badge="Cartoons Only"
+                badgeColor="bg-cyan-600"
+                subtitle="Ben 10, Avatar, Arcane, Doraemon, Shin-chan & western favorites"
+                icon={Film}
+                onViewMore={() => {
+                  setHomeShowcase("cartoons");
+                }}
+              />
+              <PosterRow>
+                {cartoons.map((c) => (
+                  <div key={c.slug} className="relative w-[140px] shrink-0 sm:w-[155px] md:w-[170px]">
+                    <div className="absolute top-2 left-2 z-10 rounded-md bg-cyan-600/95 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-white shadow-md">
+                      Cartoon
+                    </div>
+                    <PosterCard item={toPosterItem(c)} onSelect={handleOpenAnime} className="w-full" />
+                  </div>
+                ))}
+              </PosterRow>
+            </div>
+          )}
+
+          {/* AniMovie Media Showcase & Library Grid */}
+          <div className="mt-10">
+            <div className="mx-4 sm:mx-8 md:mx-12 lg:mx-16 xl:mx-20 flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-4">
+              <div>
+                <h2 className="font-display text-xl sm:text-2xl font-black tracking-wide text-white flex items-center gap-2">
+                  <Flame className="h-5 w-5 text-brand" />
+                  <span>AniMovie Catalog Showcase</span>
+                </h2>
+                <p className="text-xs text-zinc-400 mt-0.5">
+                  Filter by anime series, blockbuster movies, shonen action, and cartoons
+                </p>
+              </div>
+
+              {/* AniMovie Interactive Tabs */}
+              <div className="flex flex-wrap items-center gap-1.5 rounded-2xl border border-white/10 bg-white/[0.03] p-1.5">
+                {[
+                  { id: "all", label: "Pure Anime Library" },
+                  { id: "movies", label: "🎬 Anime Movies" },
+                  { id: "shonen", label: "⚔️ Shonen / Action" },
+                  { id: "supernatural", label: "⚡ Supernatural" },
+                  { id: "cartoons", label: "🎨 Cartoons Only" },
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setHomeShowcase(tab.id as any)}
+                    className={cn(
+                      "rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer",
+                      homeShowcase === tab.id
+                        ? "bg-brand text-white shadow-md font-extrabold"
+                        : "text-zinc-400 hover:text-white hover:bg-white/5"
+                    )}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-6 grid grid-cols-2 gap-4 px-4 sm:grid-cols-3 sm:px-8 md:grid-cols-4 md:px-12 lg:grid-cols-5 xl:grid-cols-6 lg:px-16 xl:px-20">
+              {showcaseItems.slice(0, 18).map((a) => (
                 <PosterCard
                   key={a.slug}
                   item={toPosterItem(a)}
@@ -466,135 +591,13 @@ export default function App() {
       )}
 
       {/* VIEW: ANIME DETAIL */}
-      {navTab === ("anime-detail" as any) && detailData && (
-        <main className="flex min-h-screen w-full flex-col select-none text-white pb-20 md:pb-0">
-          {/* Detail Hero */}
-          <section className="relative flex min-h-[max(70svh,560px)] w-full flex-col overflow-hidden">
-            <div className="absolute inset-0" aria-hidden>
-              <img
-                src={detailData.series.coverImage}
-                alt=""
-                className="h-full w-full object-cover object-[center_20%] animate-kenburns"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src =
-                    "https://images.unsplash.com/photo-1578632767115-351597cf2477?w=1280&auto=format&fit=crop&q=80";
-                }}
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#09090b] via-[#09090b]/50 to-transparent" />
-              <div className="absolute inset-0 bg-gradient-to-r from-[#09090b]/90 via-[#09090b]/40 to-transparent" />
-            </div>
-
-            <button
-              onClick={() => setNavTab("home")}
-              aria-label="Go back"
-              className="absolute left-4 top-20 z-30 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border border-white/15 bg-black/40 backdrop-blur transition-all hover:bg-white hover:text-black active:scale-95 sm:left-8 md:left-12 lg:left-16"
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </button>
-
-            <div className="relative z-10 flex min-w-0 flex-1 flex-col justify-end px-4 pb-12 pt-36 sm:px-8 md:px-12 md:pb-16 lg:px-16 xl:px-20">
-              <div className="flex max-w-4xl flex-col gap-5">
-                <div className="space-y-2">
-                  {detailData.series.logoImage ? (
-                    <img
-                      src={detailData.series.logoImage}
-                      alt={detailData.series.title}
-                      className="max-h-18 sm:max-h-24 max-w-[280px] sm:max-w-[420px] object-contain object-left drop-shadow-[0_4px_24px_rgba(0,0,0,0.95)] select-none mb-1"
-                      onError={(e) => {
-                        (e.target as HTMLElement).style.display = "none";
-                      }}
-                    />
-                  ) : null}
-                  <h1 className="font-display text-3xl font-black italic uppercase tracking-tight text-white drop-shadow-[0_4px_24px_rgba(0,0,0,1)] sm:text-5xl md:text-6xl lg:text-7xl">
-                    {detailData.series.title}
-                  </h1>
-                  {getTagline(detailData.series.slug) && (
-                    <p className="max-w-xl text-sm font-semibold italic text-zinc-300 drop-shadow">
-                      "{getTagline(detailData.series.slug)}"
-                    </p>
-                  )}
-                </div>
-
-                {/* Metadata tags */}
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-xs font-semibold text-zinc-300">
-                  <span className="glass-badge rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
-                    {detailData.series.status}
-                  </span>
-                  <span>·</span>
-                  <span className="flex items-center gap-1 text-white">
-                    <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
-                    {detailData.series.rating.toFixed(1)}
-                  </span>
-                  <span>·</span>
-                  <span>{detailData.series.year}</span>
-                  <span>·</span>
-                  <span>{detailData.series.totalEpisodes} Episodes</span>
-                  <span>·</span>
-                  <span className="text-brand-soft">{detailData.series.studio}</span>
-                  {detailData.series.genres.slice(0, 3).map((g) => (
-                    <span key={g} className="flex items-center gap-2">
-                      <span>·</span>
-                      <span className="text-zinc-400">{g}</span>
-                    </span>
-                  ))}
-                </div>
-
-                <p className="max-w-2xl text-xs sm:text-sm font-medium leading-relaxed text-zinc-300 drop-shadow md:text-base">
-                  {detailData.series.synopsis}
-                </p>
-
-                {/* Detail Actions */}
-                <DetailActions
-                  item={{
-                    slug: detailData.series.slug,
-                    title: detailData.series.title,
-                    cover: detailData.series.posterImage || detailData.series.coverImage,
-                    year: detailData.series.year,
-                    rating: detailData.series.rating,
-                    type: detailData.series.type,
-                    totalEpisodes: detailData.series.totalEpisodes,
-                    genres: detailData.series.genres,
-                  }}
-                  onWatch={() => handleWatchAnime(detailData.series.slug, 1, 1)}
-                  onSurprise={handleSurprise}
-                />
-              </div>
-            </div>
-          </section>
-
-          {/* Seasons & Episodes Grid */}
-          <SeasonBrowser
-            slug={detailData.series.slug}
-            cover={detailData.series.coverImage}
-            seasons={detailData.seasons}
-            episodes={detailData.episodes}
-            onPlayEpisode={(s, ep) => handleWatchAnime(detailData.series.slug, ep, s)}
-          />
-
-          {/* Voice Cast & Crew */}
-          <CastSection cast={detailData.cast} />
-
-          {/* Similar anime */}
-          {getSimilar(detailData.series).length > 0 && (
-            <section className="px-4 py-8 sm:px-8 md:px-12 lg:px-16 xl:px-20">
-              <div className="mb-4 flex items-center justify-between">
-                <h3 className="section-rule-brand font-display text-lg font-bold text-white sm:text-xl">
-                  You May Also Like
-                </h3>
-              </div>
-              <div className="no-scrollbar flex gap-4 overflow-x-auto pb-4">
-                {getSimilar(detailData.series).map((a) => (
-                  <PosterCard
-                    key={a.slug}
-                    item={toPosterItem(a)}
-                    onSelect={handleOpenAnime}
-                    className="w-[130px] sm:w-[150px] md:w-[165px]"
-                  />
-                ))}
-              </div>
-            </section>
-          )}
-        </main>
+      {navTab === ("anime-detail" as any) && (
+        <TitleDetailPage
+          titleIdOrSlug={selectedSlug}
+          onBack={handleBackToCatalog}
+          onWatch={(slug, ep, s) => handleWatchAnime(slug, ep, s)}
+          onNavigateTitle={(newId) => handleOpenAnime(newId)}
+        />
       )}
 
       {/* VIEW: WATCH PLAYER */}
@@ -617,6 +620,13 @@ export default function App() {
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
             <div className="space-y-5">
               <WatchPlayer
+                embedTgvid={
+                  watchBundle.series.tmdbId
+                    ? watchBundle.series.type === "Movie"
+                      ? `https://tgvid.lovable.app/embed/movie/${watchBundle.series.tmdbId}?color=e50914`
+                      : `https://tgvid.lovable.app/embed/tv/${watchBundle.series.tmdbId}/${watchBundle.episode.season}/${watchBundle.episode.number}?color=e50914`
+                    : null
+                }
                 embedVidsrcIcu={
                   watchBundle.series.tmdbId
                     ? `https://vidsrc.icu/embed/anime/${watchBundle.series.tmdbId}/${watchBundle.episode.number}/0`
@@ -630,16 +640,6 @@ export default function App() {
                 embedVidsrcMe={
                   watchBundle.series.tmdbId
                     ? `https://vidsrc.me/embed/tv?tmdb=${watchBundle.series.tmdbId}&season=${watchBundle.episode.season}&episode=${watchBundle.episode.number}`
-                    : null
-                }
-                embedVidstuck={
-                  watchBundle.series.tmdbId
-                    ? `https://freeserver77.ai.studio/embed/vidstuck/tv/${watchBundle.series.tmdbId}/${watchBundle.episode.season}/${watchBundle.episode.number}?lang=hin`
-                    : null
-                }
-                embedTg={
-                  watchBundle.series.tmdbId
-                    ? `https://freeserver77.ai.studio/embed/tg/tv/${watchBundle.series.tmdbId}/${watchBundle.episode.season}/${watchBundle.episode.number}`
                     : null
                 }
                 embedAutoembed={

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
-import { Code2, Compass, Home, Layers, Play, Search, Shuffle, Bookmark } from "lucide-react";
+import { Code2, Compass, Home, Play, Search, Shuffle, Bookmark, X } from "lucide-react";
 import { cn } from "../lib/utils";
+import AniMovieSearchBar from "./AniMovieSearchBar";
 
 export type NavTab = "home" | "browse" | "search" | "mylist" | "explorer";
 
@@ -8,12 +9,15 @@ export default function Navbar({
   activeTab,
   onTabChange,
   onSurprise,
+  onSelectAnime,
 }: {
   activeTab: NavTab;
   onTabChange: (tab: NavTab) => void;
   onSurprise: () => void;
+  onSelectAnime: (slug: string) => void;
 }) {
   const [shuffling, setShuffling] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
 
   const handleShuffle = () => {
     setShuffling(true);
@@ -62,22 +66,27 @@ export default function Navbar({
           </div>
         </div>
 
-        {/* Search quick button */}
+        {/* AniMovie Interactive Live Search Bar (Desktop & Tablet) */}
         <div className="hidden min-w-0 flex-1 justify-center px-4 md:flex">
-          <button
-            onClick={() => onTabChange("search")}
-            className="flex w-full max-w-md cursor-pointer items-center gap-3 rounded-2xl border border-white/10 bg-zinc-900/90 px-4 py-2 text-xs text-zinc-400 shadow-sm transition-colors hover:border-white/20 hover:text-white"
-          >
-            <Search className="h-4 w-4 text-zinc-500" />
-            <span>Search 47+ anime, movies, TMDB & AniList...</span>
-            <span className="ml-auto rounded-md border border-white/10 bg-white/5 px-1.5 py-0.5 font-mono text-[10px] text-zinc-500">
-              /
-            </span>
-          </button>
+          <AniMovieSearchBar
+            onSelectAnime={onSelectAnime}
+            onOpenFullSearch={(q) => {
+              onTabChange("search");
+            }}
+          />
         </div>
 
         {/* Right side controls */}
         <div className="flex items-center gap-2">
+          {/* Mobile search toggle */}
+          <button
+            onClick={() => setMobileSearchOpen((v) => !v)}
+            aria-label="Toggle search"
+            className="rounded-xl border border-white/10 p-2 text-zinc-300 hover:bg-white/10 hover:text-white md:hidden cursor-pointer"
+          >
+            {mobileSearchOpen ? <X className="h-4 w-4" /> : <Search className="h-4 w-4" />}
+          </button>
+
           {/* Codebase & Backend Explorer CTA */}
           <button
             onClick={() => onTabChange("explorer")}
@@ -89,7 +98,7 @@ export default function Navbar({
             )}
           >
             <Code2 className="h-4 w-4 text-brand-soft" />
-            <span className="hidden sm:inline">Inspect Codebase & Backend</span>
+            <span className="hidden sm:inline">Inspect Source</span>
             <span className="sm:hidden">Code</span>
           </button>
 
@@ -101,15 +110,24 @@ export default function Navbar({
           >
             <Shuffle className={cn("h-4 w-4", shuffling && "animate-spin")} />
           </button>
-
-          <button
-            onClick={() => onTabChange("search")}
-            className="rounded-xl border border-white/10 p-2 text-zinc-300 hover:bg-white/10 hover:text-white md:hidden cursor-pointer"
-          >
-            <Search className="h-4 w-4" />
-          </button>
         </div>
       </nav>
+
+      {/* Mobile search bar dropdown */}
+      {mobileSearchOpen && (
+        <div className="border-t border-white/10 bg-zinc-950/95 p-3 md:hidden">
+          <AniMovieSearchBar
+            onSelectAnime={(slug) => {
+              setMobileSearchOpen(false);
+              onSelectAnime(slug);
+            }}
+            onOpenFullSearch={() => {
+              setMobileSearchOpen(false);
+              onTabChange("search");
+            }}
+          />
+        </div>
+      )}
     </header>
   );
 }
