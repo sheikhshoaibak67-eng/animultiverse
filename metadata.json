@@ -1,0 +1,6 @@
+{
+  "name": "ANIVERSE - Anime Streaming Platform & Code Explorer",
+  "description": "Full-stack anime streaming platform and interactive codebase explorer featuring Next.js frontend, PostgreSQL Drizzle schema, TMDB & AniList APIs, and multi-server playback.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
