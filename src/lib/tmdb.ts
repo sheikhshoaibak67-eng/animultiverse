@@ -338,6 +338,22 @@ export async function getTitleLogo(id: number, type: "tv" | "movie" = "tv"): Pro
 }
 
 /**
+ * Fetch real episode video frame screenshots and backdrops for a series
+ */
+export async function getShowStills(id: number, type: "tv" | "movie" = "tv"): Promise<string[]> {
+  try {
+    const data = await tmdbGet<{
+      backdrops?: Array<{ file_path: string }>;
+      stills?: Array<{ file_path: string }>;
+    }>(`/${type}/${id}/images`);
+    const list = [...(data.backdrops || []), ...(data.stills || [])];
+    return list.map((item) => tmdbImage(item.file_path, "w500")).filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Search TMDB for Anime, TV, and Movies matching AniMovie query filters
  */
 export async function searchTmdb(query: string, page = 1): Promise<TmdbSearchResult[]> {

@@ -95,26 +95,16 @@ export default function Hero({
               ))}
             </div>
 
-            {/* Title & TMDB Logo (Text Without Background) */}
+            {/* Title: Upper TMDB Logo only, or text title fallback */}
             <div className="my-3 min-h-[80px] flex flex-col justify-end">
               {cur.logoImage && !logoError ? (
-                <div className="space-y-2">
+                <div className="py-1">
                   <img
                     src={cur.logoImage}
                     alt={cur.title}
-                    className="max-h-24 sm:max-h-32 md:max-h-36 max-w-[320px] sm:max-w-[460px] md:max-w-[540px] object-contain object-left drop-shadow-[0_6px_28px_rgba(0,0,0,0.95)] select-none"
+                    className="max-h-24 sm:max-h-32 md:max-h-40 max-w-[320px] sm:max-w-[460px] md:max-w-[560px] object-contain object-left drop-shadow-[0_6px_28px_rgba(0,0,0,0.95)] select-none"
                     onError={() => setLogoError(true)}
                   />
-                  <div className="flex flex-wrap items-center gap-2.5">
-                    <h2 className="text-xl sm:text-2xl md:text-3xl font-extrabold tracking-tight text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)]">
-                      {cur.title}
-                    </h2>
-                    {cur.japaneseTitle && cur.japaneseTitle !== cur.title && (
-                      <span className="rounded-md bg-black/70 px-2.5 py-0.5 font-mono text-xs font-semibold text-zinc-300 backdrop-blur border border-white/10">
-                        {cur.japaneseTitle}
-                      </span>
-                    )}
-                  </div>
                 </div>
               ) : (
                 <div>

@@ -27,10 +27,12 @@ import {
   getAggregateCredits,
   getVideos,
   getRecommendations,
+  getShowStills,
   searchTmdb,
   tmdbImage,
 } from "../lib/tmdb";
 import { findAnime } from "../lib/dataStore";
+import { resolveAllSeasons } from "../lib/animeSeasonsData";
 import {
   DEMON_SLAYER_DETAILS,
   DEMON_SLAYER_SEASONS,
@@ -79,23 +81,25 @@ export default function TitleDetailPage({
   const initialData = catalogItem || (isDemonSlayer ? DEMON_SLAYER_DETAILS : null);
   const [details, setDetails] = useState<any>(initialData);
   const [logoUrl, setLogoUrl] = useState<string | null>(
-    catalogItem?.logoImage || (isDemonSlayer ? DEMON_SLAYER_DETAILS.logoImage : null)
+    catalogItem?.logoImage || (catalogItem as any)?.logo || (isDemonSlayer ? DEMON_SLAYER_DETAILS.logoImage : null)
   );
   const [trailerKey, setTrailerKey] = useState<string | null>(
     isDemonSlayer ? DEMON_SLAYER_TRAILER : null
   );
+
+  // Initialize ALL seasons for this anime immediately from canonical presets or catalog
   const [seasons, setSeasons] = useState<any[]>(() => {
+    if (isMovie) return [];
     if (isDemonSlayer) return DEMON_SLAYER_SEASONS;
-    if (catalogItem) {
-      return [
-        {
-          number: 1,
-          name: "Season 1",
-          episodeCount: catalogItem.totalEpisodes || 12,
-          poster: catalogItem.posterImage,
-          year: catalogItem.year,
-        },
-      ];
+    const resolved = resolveAllSeasons(catalogItem?.slug || titleIdOrSlug || catalogItem?.tmdbId || "");
+    if (resolved && resolved.length > 0) {
+      return resolved.map((sn) => ({
+        number: sn.number,
+        name: sn.name,
+        episodeCount: sn.episodeCount,
+        poster: sn.poster || catalogItem?.posterImage || "",
+        year: sn.year || catalogItem?.year || 2024,
+      }));
     }
     return [];
   });
@@ -113,6 +117,7 @@ export default function TitleDetailPage({
   });
   const [cast, setCast] = useState<any[]>(isDemonSlayer ? DEMON_SLAYER_CAST : []);
   const [recs, setRecs] = useState<any[]>(isDemonSlayer ? DEMON_SLAYER_RECS : []);
+  const [showStills, setShowStills] = useState<string[]>([]);
   const [loadingEpisodes, setLoadingEpisodes] = useState(false);
 
   // UI state
@@ -128,24 +133,30 @@ export default function TitleDetailPage({
   useEffect(() => {
     setActiveSeason(1);
     setSearchQuery("");
+    setShowStills([]);
     const item = findAnime(titleIdOrSlug);
     if (item) {
       setDetails(item);
-      setLogoUrl(item.logoImage || null);
+      setLogoUrl(item.logoImage || (item as any).logo || null);
       setResolvedId(item.tmdbId || item.id);
       setSeasonEpisodes({});
       setCast([]);
       setRecs([]);
       setTrailerKey(null);
-      setSeasons([
-        {
-          number: 1,
-          name: "Season 1",
-          episodeCount: item.totalEpisodes || 12,
-          poster: item.posterImage,
-          year: item.year,
-        },
-      ]);
+      if (item.type !== "Movie") {
+        const itemSeasons = resolveAllSeasons(item.slug || item.tmdbId || item.id);
+        setSeasons(
+          itemSeasons.map((sn) => ({
+            number: sn.number,
+            name: sn.name,
+            episodeCount: sn.episodeCount,
+            poster: sn.poster || item.posterImage,
+            year: sn.year || item.year,
+          }))
+        );
+      } else {
+        setSeasons([]);
+      }
     } else if (
       titleIdOrSlug === "tv-85937" ||
       titleIdOrSlug === "85937" ||
@@ -172,6 +183,20 @@ export default function TitleDetailPage({
       setCast([]);
       setRecs([]);
       setTrailerKey(null);
+      if (!titleIdOrSlug.startsWith("movie-")) {
+        const itemSeasons = resolveAllSeasons(titleIdOrSlug);
+        setSeasons(
+          itemSeasons.map((sn) => ({
+            number: sn.number,
+            name: sn.name,
+            episodeCount: sn.episodeCount,
+            poster: sn.poster || "",
+            year: sn.year || 2024,
+          }))
+        );
+      } else {
+        setSeasons([]);
+      }
     }
   }, [titleIdOrSlug]);
 
@@ -237,6 +262,15 @@ export default function TitleDetailPage({
               year: sn.air_date ? new Date(sn.air_date).getFullYear() : 2020,
             }));
 
+          const resolvedSeasons = resolveAllSeasons(
+            catalogItem?.slug || titleIdOrSlug || catalogItem?.tmdbId || s.id,
+            validSeasons
+          );
+
+          // Select the most complete season list
+          const finalSeasons =
+            validSeasons.length > resolvedSeasons.length ? validSeasons : resolvedSeasons;
+
           setDetails({
             id: s.id,
             tmdbId: s.id,
@@ -253,12 +287,20 @@ export default function TitleDetailPage({
             type: "TV",
             studio: s.production_companies?.[0]?.name || s.networks?.[0]?.name || "Anime Studio",
             genres: s.genres?.map((g) => g.name) || ["Animation", "Action & Adventure", "Fantasy"],
-            totalSeasons: validSeasons.length,
-            totalEpisodes: s.number_of_episodes,
+            totalSeasons: finalSeasons.length,
+            totalEpisodes: s.number_of_episodes || finalSeasons.reduce((acc: number, curr: any) => acc + (curr.episodeCount || 12), 0),
           });
 
-          if (validSeasons.length > 0) {
-            setSeasons(validSeasons);
+          if (finalSeasons.length > 0) {
+            setSeasons(
+              finalSeasons.map((sn: any) => ({
+                number: sn.number,
+                name: sn.name,
+                episodeCount: sn.episodeCount || sn.episode_count || 12,
+                poster: sn.poster || (sn.poster_path ? tmdbImage(sn.poster_path, "w500") : s.poster_path ? tmdbImage(s.poster_path, "w500") : ""),
+                year: sn.year || (sn.air_date ? new Date(sn.air_date).getFullYear() : 2024),
+              }))
+            );
           }
         }
 
@@ -301,6 +343,12 @@ export default function TitleDetailPage({
             }))
           );
         }
+
+        // Fetch real video stills and backdrops for this anime
+        const videoStills = await getShowStills(targetId, isMovie ? "movie" : "tv");
+        if (active && videoStills && videoStills.length > 0) {
+          setShowStills(videoStills);
+        }
       } catch (err) {
         console.warn("Failed to load TMDB show details:", err);
       }
@@ -312,7 +360,7 @@ export default function TitleDetailPage({
     };
   }, [parsedId, isMovie, isDemonSlayer, titleIdOrSlug]);
 
-  // Load episodes for active season
+  // Load episodes for active season with REAL video frame stills
   useEffect(() => {
     if (isMovie || !parsedId) return;
     if (seasonEpisodes[activeSeason] && seasonEpisodes[activeSeason].length > 0) {
@@ -323,47 +371,106 @@ export default function TitleDetailPage({
     setLoadingEpisodes(true);
 
     getSeason(parsedId, activeSeason)
-      .then((data) => {
+      .then(async (data) => {
         if (!active) return;
-        const eps = (data.episodes || []).map((ep) => ({
+        let eps = (data.episodes || []).map((ep, idx) => ({
           season: activeSeason,
           number: ep.episode_number,
-          title: ep.name,
-          overview: ep.overview,
-          still: ep.still_path ? tmdbImage(ep.still_path, "w500") : (details?.coverImage || catalogItem?.coverImage || ""),
+          title: ep.name || `Episode ${ep.episode_number}`,
+          overview: ep.overview || `Watch Episode ${ep.episode_number} of ${details?.title || catalogItem?.title || "this series"} in high definition.`,
+          still: ep.still_path
+            ? tmdbImage(ep.still_path, "w500")
+            : (showStills[idx % Math.max(showStills.length, 1)] || details?.coverImage || catalogItem?.coverImage || ""),
           air_date: (ep as any).air_date || "",
-          runtime: ep.runtime || 24,
+          runtime: ep.runtime || 25,
         }));
+
+        // If Season 2+ returned 0 episodes, check if Season 1 contains subsequent episodes (e.g. JJK where all 47 eps are in Season 1)
+        if (eps.length === 0 && activeSeason > 1) {
+          try {
+            const s1 = await getSeason(parsedId, 1);
+            if (s1.episodes && s1.episodes.length > 20) {
+              const startIdx = (activeSeason - 1) * 24;
+              const sliced = s1.episodes.slice(startIdx, startIdx + 26);
+              if (sliced.length > 0) {
+                eps = sliced.map((ep, idx) => ({
+                  season: activeSeason,
+                  number: idx + 1,
+                  title: ep.name || `Episode ${idx + 1}`,
+                  overview: ep.overview || `Watch Episode ${idx + 1} in full HD.`,
+                  still: ep.still_path
+                    ? tmdbImage(ep.still_path, "w500")
+                    : (showStills[idx % Math.max(showStills.length, 1)] || details?.coverImage || ""),
+                  air_date: (ep as any).air_date || "",
+                  runtime: ep.runtime || 25,
+                }));
+              }
+            }
+          } catch {}
+        }
+
         if (eps.length > 0) {
           setSeasonEpisodes((prev) => ({ ...prev, [activeSeason]: eps }));
         } else {
-          // Generate episodes for this anime
-          const epCount = catalogItem?.totalEpisodes || details?.totalEpisodes || 12;
+          // Fallback if no episodes from API
+          const targetSeason = seasons.find((sn) => sn.number === activeSeason);
+          const epCount = targetSeason?.episodeCount || 12;
+          const seasonName = targetSeason?.name || `Season ${activeSeason}`;
           const fallbackEps = Array.from({ length: epCount }, (_, idx) => ({
             season: activeSeason,
             number: idx + 1,
-            title: `Episode ${idx + 1}`,
-            overview: `Watch Episode ${idx + 1} of ${details?.title || catalogItem?.title || "this series"} in high definition.`,
-            still: details?.coverImage || catalogItem?.coverImage || "",
+            title: `${seasonName} - Episode ${idx + 1}`,
+            overview: `Watch Season ${activeSeason} Episode ${idx + 1} of ${details?.title || catalogItem?.title || "this series"} in high definition.`,
+            still: showStills[idx % Math.max(showStills.length, 1)] || details?.coverImage || catalogItem?.coverImage || "",
             air_date: "",
-            runtime: 24,
+            runtime: 25,
           }));
           setSeasonEpisodes((prev) => ({ ...prev, [activeSeason]: fallbackEps }));
         }
         setLoadingEpisodes(false);
       })
-      .catch((err) => {
+      .catch(async (err) => {
         console.warn(`Could not load season ${activeSeason} episodes:`, err);
         if (!active) return;
-        const epCount = catalogItem?.totalEpisodes || details?.totalEpisodes || 12;
+
+        // Try checking Season 1 for Season 2+ episodes
+        if (activeSeason > 1) {
+          try {
+            const s1 = await getSeason(parsedId, 1);
+            if (s1.episodes && s1.episodes.length > 20) {
+              const startIdx = (activeSeason - 1) * 24;
+              const sliced = s1.episodes.slice(startIdx, startIdx + 26);
+              if (sliced.length > 0) {
+                const eps = sliced.map((ep, idx) => ({
+                  season: activeSeason,
+                  number: idx + 1,
+                  title: ep.name || `Episode ${idx + 1}`,
+                  overview: ep.overview || `Watch Episode ${idx + 1} in full HD.`,
+                  still: ep.still_path
+                    ? tmdbImage(ep.still_path, "w500")
+                    : (showStills[idx % Math.max(showStills.length, 1)] || details?.coverImage || ""),
+                  air_date: (ep as any).air_date || "",
+                  runtime: ep.runtime || 25,
+                }));
+                setSeasonEpisodes((prev) => ({ ...prev, [activeSeason]: eps }));
+                setLoadingEpisodes(false);
+                return;
+              }
+            }
+          } catch {}
+        }
+
+        const targetSeason = seasons.find((sn) => sn.number === activeSeason);
+        const epCount = targetSeason?.episodeCount || 12;
+        const seasonName = targetSeason?.name || `Season ${activeSeason}`;
         const fallbackEps = Array.from({ length: epCount }, (_, idx) => ({
           season: activeSeason,
           number: idx + 1,
-          title: `Episode ${idx + 1}`,
-          overview: `Watch Episode ${idx + 1} of ${details?.title || catalogItem?.title || "this series"} in high definition.`,
-          still: details?.coverImage || catalogItem?.coverImage || "",
+          title: `${seasonName} - Episode ${idx + 1}`,
+          overview: `Watch Season ${activeSeason} Episode ${idx + 1} of ${details?.title || catalogItem?.title || "this series"} in high definition.`,
+          still: showStills[idx % Math.max(showStills.length, 1)] || details?.coverImage || catalogItem?.coverImage || "",
           air_date: "",
-          runtime: 24,
+          runtime: 25,
         }));
         setSeasonEpisodes((prev) => ({ ...prev, [activeSeason]: fallbackEps }));
         setLoadingEpisodes(false);
@@ -372,7 +479,7 @@ export default function TitleDetailPage({
     return () => {
       active = false;
     };
-  }, [parsedId, activeSeason, isMovie, details?.title, catalogItem?.title]);
+  }, [parsedId, activeSeason, isMovie, details?.title, catalogItem?.title, showStills]);
 
   // Filter and sort episodes
   const displayedEpisodes = useMemo(() => {
@@ -512,29 +619,29 @@ export default function TitleDetailPage({
 
             {/* Title & Info */}
             <div className="flex-1 flex flex-col justify-end space-y-3 pt-2">
-              {/* TMDB Transparent Logo (Text Without Background) */}
+              {/* Upper Fetched Logo Name (or text title fallback if no logo available) */}
               {logoUrl ? (
-                <div className="mb-2">
+                <div className="mb-3">
                   <img
                     src={logoUrl}
-                    alt={details?.title}
-                    className="max-h-20 sm:max-h-28 max-w-[280px] sm:max-w-[460px] object-contain object-left drop-shadow-[0_4px_24px_rgba(0,0,0,0.95)]"
+                    alt={details?.title || "Anime Title"}
+                    className="max-h-24 sm:max-h-36 md:max-h-44 max-w-[300px] sm:max-w-[480px] md:max-w-[580px] object-contain object-left drop-shadow-[0_4px_28px_rgba(0,0,0,0.95)] select-none"
                     onError={() => setLogoUrl(null)}
                   />
                 </div>
-              ) : null}
-
-              {/* Title & Japanese Badge */}
-              <div className="flex flex-wrap items-baseline gap-3">
-                <h1 className="font-display text-2xl sm:text-4xl md:text-5xl font-black uppercase tracking-tight text-white drop-shadow-[0_4px_20px_rgba(0,0,0,0.9)]">
-                  {details?.title || "Demon Slayer: Kimetsu no Yaiba"}
-                </h1>
-                {details?.japaneseTitle && (
-                  <span className="px-2.5 py-0.5 rounded-md bg-white/10 border border-white/15 text-xs font-bold text-zinc-300 backdrop-blur-sm">
-                    {details.japaneseTitle}
-                  </span>
-                )}
-              </div>
+              ) : (
+                /* Fallback only if upper logo is not available */
+                <div className="flex flex-wrap items-baseline gap-3">
+                  <h1 className="font-display text-2xl sm:text-4xl md:text-5xl font-black uppercase tracking-tight text-white drop-shadow-[0_4px_20px_rgba(0,0,0,0.9)]">
+                    {details?.title || "Demon Slayer: Kimetsu no Yaiba"}
+                  </h1>
+                  {details?.japaneseTitle && (
+                    <span className="px-2.5 py-0.5 rounded-md bg-white/10 border border-white/15 text-xs font-bold text-zinc-300 backdrop-blur-sm">
+                      {details.japaneseTitle}
+                    </span>
+                  )}
+                </div>
+              )}
 
               {/* Tagline */}
               {details?.tagline && (
@@ -788,9 +895,9 @@ export default function TitleDetailPage({
                   <div
                     key={`${ep.season}-${ep.number}`}
                     onClick={() => handleStartWatch(ep.number, ep.season)}
-                    className="group relative flex flex-col justify-between rounded-2xl bg-zinc-900/90 hover:bg-zinc-850 border border-zinc-800/80 hover:border-zinc-700/80 overflow-hidden transition-all duration-200 cursor-pointer shadow-lg hover:shadow-2xl hover:-translate-y-0.5"
+                    className="group relative flex flex-col justify-between rounded-2xl bg-[#121214] hover:bg-[#18181b] border border-zinc-800/80 hover:border-zinc-700/80 overflow-hidden transition-all duration-200 cursor-pointer shadow-lg hover:shadow-2xl hover:-translate-y-0.5"
                   >
-                    {/* Thumbnail */}
+                    {/* Episode Video Frame Thumbnail */}
                     <div className="relative aspect-video w-full overflow-hidden bg-zinc-950">
                       <img
                         src={epStill}
@@ -803,52 +910,50 @@ export default function TitleDetailPage({
                             "https://image.tmdb.org/t/p/w1280/3GQKYh6Trm8pxd2AypovoYQf4Ay.jpg";
                         }}
                       />
-                      {/* Episode Number Badge */}
-                      <div className="absolute top-2 left-2 z-10 px-2 py-0.5 rounded bg-black/85 backdrop-blur-sm border border-white/10 text-[10px] font-black text-white">
+
+                      {/* Top Left: EP Badge */}
+                      <div className="absolute top-2.5 left-2.5 px-2.5 py-0.5 rounded-md bg-black/80 backdrop-blur-md text-[11px] font-black text-white tracking-wide shadow-md">
                         EP {ep.number}
                       </div>
 
-                      {/* Runtime Badge */}
-                      <div className="absolute bottom-2 right-2 z-10 px-2 py-0.5 rounded bg-black/85 backdrop-blur-sm border border-white/10 text-[10px] font-bold text-zinc-300">
-                        {ep.runtime || 24}m
+                      {/* Bottom Right: Duration Badge */}
+                      <div className="absolute bottom-2.5 right-2.5 px-2 py-0.5 rounded-md bg-black/80 backdrop-blur-md text-[11px] font-bold text-white shadow-md">
+                        {ep.runtime || 25}m
                       </div>
 
                       {/* Play overlay on hover */}
                       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <div className="w-10 h-10 rounded-full bg-brand text-white flex items-center justify-center shadow-xl shadow-brand/40 scale-90 group-hover:scale-100 transition-transform">
-                          <Play className="w-4 h-4 fill-white ml-0.5" />
+                        <div className="w-11 h-11 rounded-full bg-brand text-white flex items-center justify-center shadow-xl shadow-brand/40 scale-90 group-hover:scale-100 transition-transform">
+                          <Play className="w-5 h-5 fill-white ml-0.5" />
                         </div>
                       </div>
                     </div>
 
-                    {/* Content text */}
-                    <div className="p-3 flex flex-col justify-between flex-1">
+                    {/* Card Content */}
+                    <div className="p-3.5 flex flex-col justify-between flex-1">
                       <div>
-                        <div className="flex items-center justify-between gap-2">
-                          <h4 className="text-xs sm:text-sm font-extrabold text-white group-hover:text-brand-soft transition-colors truncate">
-                            {ep.title}
-                          </h4>
-                        </div>
-                        {ep.overview && (
-                          <p className="text-[11px] text-zinc-400 line-clamp-2 mt-1 leading-relaxed">
-                            {ep.overview}
-                          </p>
-                        )}
+                        <h4 className="text-sm font-extrabold text-white group-hover:text-brand-soft transition-colors truncate">
+                          {ep.title}
+                        </h4>
+                        <p className="text-xs text-zinc-400 line-clamp-2 mt-1.5 leading-relaxed font-normal">
+                          {ep.overview || `Watch Episode ${ep.number} of ${details?.title || "this series"} in high definition.`}
+                        </p>
                       </div>
 
-                      <div className="flex items-center justify-between pt-2.5 mt-2 border-t border-zinc-800/60 text-[10px] text-zinc-500 font-semibold">
+                      {/* Footer Row: Air Date + Download Icon */}
+                      <div className="flex items-center justify-between pt-3 mt-3 border-t border-zinc-800/60 text-xs text-zinc-500 font-medium">
                         <span>{ep.air_date ? `Aired ${ep.air_date}` : `Season ${ep.season}`}</span>
                         <button
                           type="button"
+                          title="Download episode"
                           onClick={(e) => {
                             e.stopPropagation();
                             setSelectedDownloadEp(ep);
                             setIsDownloadOpen(true);
                           }}
-                          className="hover:text-white p-1 rounded transition"
-                          title="Download episode"
+                          className="p-1 rounded-md hover:bg-white/10 text-zinc-400 hover:text-white transition cursor-pointer"
                         >
-                          <Download className="w-3.5 h-3.5" />
+                          <Download className="w-4 h-4" />
                         </button>
                       </div>
                     </div>

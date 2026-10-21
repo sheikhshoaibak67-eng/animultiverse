@@ -84,24 +84,43 @@ export default function EpisodeNav({
                   : "border-transparent hover:bg-white/5"
               )}
             >
-              <div className="relative h-14 w-24 shrink-0 overflow-hidden rounded-lg border border-white/10 bg-zinc-900">
-                <img
-                  src={e.thumb || cover}
-                  alt=""
-                  className={cn(
-                    "h-full w-full object-cover transition-all",
-                    !isCurrent && "saturate-[0.6] group-hover:saturate-100"
+              {/* Video Frame Thumbnail */}
+              <div className="relative h-14 w-24 shrink-0 p-0.5 bg-zinc-950 rounded-lg border border-zinc-800/80 group-hover:border-brand/40 transition-all">
+                <div className="relative h-full w-full overflow-hidden rounded-[5px] bg-zinc-900 border border-white/5">
+                  <img
+                    src={e.thumb || cover}
+                    alt=""
+                    className={cn(
+                      "h-full w-full object-cover transition-all",
+                      !isCurrent && "saturate-[0.6] group-hover:saturate-100"
+                    )}
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = cover;
+                    }}
+                  />
+
+                  {/* Corner Viewfinder Brackets */}
+                  <div className="pointer-events-none absolute inset-1 z-10 opacity-60 group-hover:opacity-100 transition-opacity">
+                    <div className="absolute top-0 left-0 w-1.5 h-1.5 border-t border-l border-white/70 group-hover:border-brand" />
+                    <div className="absolute top-0 right-0 w-1.5 h-1.5 border-t border-r border-white/70 group-hover:border-brand" />
+                    <div className="absolute bottom-0 left-0 w-1.5 h-1.5 border-b border-l border-white/70 group-hover:border-brand" />
+                    <div className="absolute bottom-0 right-0 w-1.5 h-1.5 border-b border-r border-white/70 group-hover:border-brand" />
+                  </div>
+
+                  <span className="absolute bottom-0.5 left-0.5 rounded bg-black/85 px-1 py-0.5 font-mono text-[8px] font-bold text-white z-20 flex items-center gap-1">
+                    <span className="w-1 h-1 rounded-full bg-red-500 animate-pulse" />
+                    E{e.number}
+                  </span>
+
+                  {isCurrent && (
+                    <span className="absolute right-1 top-1 h-2 w-2 animate-pulse rounded-full bg-brand shadow-sm shadow-brand z-20" />
                   )}
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = cover;
-                  }}
-                />
-                <span className="absolute bottom-1 left-1 rounded bg-black/75 px-1 py-0.5 font-mono text-[9px] font-bold text-white">
-                  E{e.number}
-                </span>
-                {isCurrent && (
-                  <span className="absolute right-1 top-1 h-2 w-2 animate-pulse rounded-full bg-brand" />
-                )}
+
+                  {/* Bottom Video Progress Line */}
+                  <div className="absolute bottom-0 inset-x-0 h-0.5 bg-black/50 z-20">
+                    <div className={cn("h-full bg-brand transition-all", isCurrent ? "w-full" : "w-0 group-hover:w-full")} />
+                  </div>
+                </div>
               </div>
 
               <div className="min-w-0 flex-1">

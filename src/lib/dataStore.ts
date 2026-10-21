@@ -1,6 +1,7 @@
 import { initialCatalog, cartoonsCatalog, VIDEOS, DURATIONS } from "./catalog";
 import type { AnimeItem, SeasonItem, EpisodeItem, CastItem, AnimeBundle, EpisodeBundle } from "./types";
 import { getEpisodeOverview } from "./copy";
+import { resolveAllSeasons } from "./animeSeasonsData";
 import {
   discoverAnime,
   getShow,
@@ -64,19 +65,36 @@ const episodeStore: Record<number, EpisodeItem[]> = {};
 const castStore: Record<number, CastItem[]> = {};
 
 allSeed.forEach((s) => {
-  seasonStore[s.id] = [
-    {
-      id: s.id * 10 + 1,
-      animeId: s.id,
-      number: 1,
-      name: s.type === "Movie" ? "Movie" : "Season 1",
-      poster: s.poster,
-      episodeCount: s.episodeTitles.length,
-      year: s.year,
-    },
-  ];
+  const resolvedSeasons = resolveAllSeasons(s.slug || s.tmdbId);
+  seasonStore[s.id] = resolvedSeasons.map((sn) => ({
+    id: s.id * 100 + sn.number,
+    animeId: s.id,
+    number: sn.number,
+    name: sn.name,
+    poster: sn.poster || s.poster,
+    episodeCount: sn.episodeCount,
+    year: sn.year || s.year,
+  }));
 
-  episodeStore[s.id] = s.episodeTitles.map((title, i) => ({
+  const allEpisodesList: EpisodeItem[] = [];
+  resolvedSeasons.forEach((sn) => {
+    const epCount = Math.min(sn.episodeCount, 26);
+    for (let epNum = 1; epNum <= epCount; epNum++) {
+      allEpisodesList.push({
+        id: s.id * 1000 + sn.number * 100 + epNum,
+        animeId: s.id,
+        season: sn.number,
+        number: epNum,
+        title: `${sn.name} - Episode ${epNum}`,
+        overview: getEpisodeOverview(s.slug, epNum) || `Watch Season ${sn.number} Episode ${epNum} of ${s.title} in HD.`,
+        thumb: s.cover,
+        videoUrl: VIDEOS[(sn.number * 10 + epNum) % VIDEOS.length],
+        duration: DURATIONS[epNum % DURATIONS.length],
+      });
+    }
+  });
+
+  episodeStore[s.id] = allEpisodesList.length > 0 ? allEpisodesList : s.episodeTitles.map((title, i) => ({
     id: s.id * 100 + i + 1,
     animeId: s.id,
     season: 1,
@@ -263,29 +281,38 @@ export async function loadLiveAniMovieTmdbCatalog(force = false): Promise<boolea
           trendRank: i + 1,
         };
 
-        seasonStore[newId] = [
-          {
-            id: newId * 10 + 1,
-            animeId: newId,
-            number: 1,
-            name: "Season 1",
-            poster: newAnimeItem.posterImage,
-            episodeCount: 12,
-            year: newAnimeItem.year,
-          },
-        ];
+        const resolvedSeasons = resolveAllSeasons(slug || item.id);
+        newAnimeItem.seasonCount = resolvedSeasons.length;
+        newAnimeItem.totalEpisodes = resolvedSeasons.reduce((acc, curr) => acc + curr.episodeCount, 0);
 
-        episodeStore[newId] = Array.from({ length: 12 }, (_, j) => ({
-          id: newId * 100 + j + 1,
+        seasonStore[newId] = resolvedSeasons.map((sn) => ({
+          id: newId * 100 + sn.number,
           animeId: newId,
-          season: 1,
-          number: j + 1,
-          title: `Episode ${j + 1}`,
-          overview: `Episode ${j + 1} of ${title}. Streaming in 1080p high quality with Japanese audio and subtitles.`,
-          thumb: newAnimeItem.coverImage,
-          videoUrl: VIDEOS[j % VIDEOS.length],
-          duration: DURATIONS[j % DURATIONS.length],
+          number: sn.number,
+          name: sn.name,
+          poster: sn.poster || newAnimeItem.posterImage,
+          episodeCount: sn.episodeCount,
+          year: sn.year || newAnimeItem.year,
         }));
+
+        const allEpisodesList: EpisodeItem[] = [];
+        resolvedSeasons.forEach((sn) => {
+          const epCount = Math.min(sn.episodeCount, 26);
+          for (let epNum = 1; epNum <= epCount; epNum++) {
+            allEpisodesList.push({
+              id: newId * 1000 + sn.number * 100 + epNum,
+              animeId: newId,
+              season: sn.number,
+              number: epNum,
+              title: `${sn.name} - Episode ${epNum}`,
+              overview: `Episode ${epNum} of ${sn.name} (${title}). Streaming in 1080p high quality with Japanese audio and subtitles.`,
+              thumb: newAnimeItem.coverImage,
+              videoUrl: VIDEOS[(sn.number * 10 + epNum) % VIDEOS.length],
+              duration: DURATIONS[epNum % DURATIONS.length],
+            });
+          }
+        });
+        episodeStore[newId] = allEpisodesList;
 
         castStore[newId] = [
           {
@@ -505,33 +532,39 @@ export function getAnimeBySlug(slugOrId: string): AnimeBundle | null {
   }
 
   // Ensure seasons and episodes exist for this series
-  if (!seasonStore[series.id]) {
-    seasonStore[series.id] = [
-      {
-        id: series.id * 10 + 1,
-        animeId: series.id,
-        number: 1,
-        name: "Season 1",
-        poster: series.posterImage,
-        episodeCount: series.totalEpisodes || 12,
-        year: series.year,
-      },
-    ];
+  if (!seasonStore[series.id] || seasonStore[series.id].length <= 1) {
+    const resolvedSeasons = resolveAllSeasons(series.slug || series.tmdbId);
+    seasonStore[series.id] = resolvedSeasons.map((sn) => ({
+      id: series.id * 100 + sn.number,
+      animeId: series.id,
+      number: sn.number,
+      name: sn.name,
+      poster: sn.poster || series.posterImage,
+      episodeCount: sn.episodeCount,
+      year: sn.year || series.year,
+    }));
   }
 
   if (!episodeStore[series.id] || episodeStore[series.id].length === 0) {
-    const count = series.totalEpisodes || 12;
-    episodeStore[series.id] = Array.from({ length: count }, (_, j) => ({
-      id: series.id * 100 + j + 1,
-      animeId: series.id,
-      season: 1,
-      number: j + 1,
-      title: `Episode ${j + 1}`,
-      overview: `Episode ${j + 1} of ${series.title}. Streaming in high quality.`,
-      thumb: series.coverImage,
-      videoUrl: VIDEOS[j % VIDEOS.length],
-      duration: DURATIONS[j % DURATIONS.length],
-    }));
+    const seasonsList = seasonStore[series.id] || [];
+    const allEpisodesList: EpisodeItem[] = [];
+    seasonsList.forEach((sn) => {
+      const epCount = Math.min(sn.episodeCount, 26);
+      for (let epNum = 1; epNum <= epCount; epNum++) {
+        allEpisodesList.push({
+          id: series.id * 1000 + sn.number * 100 + epNum,
+          animeId: series.id,
+          season: sn.number,
+          number: epNum,
+          title: `${sn.name} - Episode ${epNum}`,
+          overview: `Watch Season ${sn.number} Episode ${epNum} of ${series.title} in HD.`,
+          thumb: series.coverImage,
+          videoUrl: VIDEOS[(sn.number * 10 + epNum) % VIDEOS.length],
+          duration: DURATIONS[epNum % DURATIONS.length],
+        });
+      }
+    });
+    episodeStore[series.id] = allEpisodesList;
   }
 
   if (!castStore[series.id]) {
