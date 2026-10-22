@@ -97,7 +97,7 @@ export default function WatchPlayer({
           setAnimeSaltUrl(data.embedUrl);
           setAnimeSaltError(null);
         } else {
-          setAnimeSaltError(data.error || "Automated retrieval could not locate this episode on animultiverse.");
+          setAnimeSaltError(data.error || "Automated retrieval could not locate this episode on AnimeSalt.");
         }
       })
       .catch((err) => {
@@ -113,12 +113,12 @@ export default function WatchPlayer({
     };
   }, [animeTitle, season, episode, tmdbId, type, embedAnimeSalt, resolveAttempt]);
 
-  // Server definitions - animultiverse is default server
+  // Server definitions - AnimeSalt is default server
   const servers = [
     {
       id: "animesalt",
-      label: "Server 1 (animultiverse)",
-      tag: "animultiverse • Ravok HD Player (Default)",
+      label: "Server 1 (AnimeSalt)",
+      tag: "AnimeSalt • Ravok HD Player (Default)",
     },
     ...(embedTgvid ? [{ id: "tgvid", label: "Server 2 (TGVID)", tag: "TGVID • Ultra Fast HD Player" }] : []),
     ...(embedVidsrcIcu ? [{ id: "vidsrc-icu", label: "Server 3 (AniMovie)", tag: "VidSrc ICU • Sub/Dub HD" }] : []),
@@ -254,7 +254,7 @@ export default function WatchPlayer({
         {active !== "demo" && (
           <div className="mt-2 flex flex-wrap items-center justify-between gap-2 px-1 text-[11px] text-zinc-500">
             <span>
-              Streaming via active mirror ({active === "animesalt" ? "animultiverse Source" : "Direct Mirror"}).
+              Streaming via active mirror ({active === "animesalt" ? "AnimeSalt Source" : "Direct Mirror"}).
               Switch servers if blocked or buffering.
             </span>
             {embedUrl && (
@@ -272,22 +272,22 @@ export default function WatchPlayer({
         )}
       </div>
 
-      {/* ACTIVE: animultiverse loading state */}
+      {/* ACTIVE: AnimeSalt loading state */}
       {active === "animesalt" && animeSaltLoading && !effectiveAnimeSaltEmbed && (
         <div className="relative aspect-video w-full flex flex-col items-center justify-center rounded-2xl border border-white/10 bg-zinc-950 p-6 text-center shadow-2xl">
           <Loader2 className="h-10 w-10 animate-spin text-brand" />
-          <h3 className="mt-4 font-display text-base font-bold text-white">Loading animultiverse Episode Source</h3>
+          <h3 className="mt-4 font-display text-base font-bold text-white">Loading AnimeSalt Episode Source</h3>
           <p className="mt-1 text-xs text-zinc-400 max-w-sm">
-            Searching animultiverse and extracting authorized player embed for {animeTitle || "anime"} S{season || 1}:E{episode || 1}...
+            Searching AnimeSalt and extracting authorized player embed for {animeTitle || "anime"} S{season || 1}:E{episode || 1}...
           </p>
         </div>
       )}
 
-      {/* ACTIVE: animultiverse error & manual fallback state */}
+      {/* ACTIVE: AnimeSalt error & manual fallback state */}
       {active === "animesalt" && !animeSaltLoading && !effectiveAnimeSaltEmbed && animeSaltError && (
         <div className="relative aspect-video w-full flex flex-col items-center justify-center rounded-2xl border border-white/10 bg-zinc-950/95 p-6 text-center shadow-2xl">
           <AlertCircle className="h-10 w-10 text-amber-500 mb-2" />
-          <h3 className="font-display text-base font-bold text-white">animultiverse Source Notice</h3>
+          <h3 className="font-display text-base font-bold text-white">AnimeSalt Source Notice</h3>
           <p className="mt-1 max-w-md text-xs text-zinc-400">
             {animeSaltError}
           </p>
