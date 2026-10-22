@@ -86,23 +86,64 @@ export default function WatchPlayer({
       ...(type ? { type } : {}),
     });
 
-    fetch(`/api/anime-source/animesalt?${queryParams}`)
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP error ${res.status}`);
-        return res.json();
-      })
-      .then((data) => {
-        if (cancelled) return;
-        if (data.success && data.embedUrl) {
-          setAnimeSaltUrl(data.embedUrl);
-          setAnimeSaltError(null);
-        } else {
-          setAnimeSaltError(data.error || "Automated retrieval could not locate this episode on AnimeSalt.");
+    const qs = queryParams.toString();
+    const candidateEndpoints = [
+      `/api/anime-source/animesalt?${qs}`,
+      `/.netlify/functions/animesalt?${qs}`,
+    ];
+
+    const fetchJsonSafe = async (url: string) => {
+      const res = await fetch(url);
+      const contentType = res.headers.get("content-type") || "";
+      const text = await res.text();
+
+      // If response is HTML (e.g. static host fallback index.html), reject as HTML fallback
+      if (text.trim().startsWith("<") || contentType.includes("text/html")) {
+        throw new Error("HTML_FALLBACK");
+      }
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+
+      return JSON.parse(text);
+    };
+
+    (async () => {
+      let resolvedData: any = null;
+
+      for (const endpoint of candidateEndpoints) {
+        try {
+          const data = await fetchJsonSafe(endpoint);
+          if (data && typeof data === "object") {
+            resolvedData = data;
+            break;
+          }
+        } catch {
+          // Try next endpoint candidate
         }
-      })
-      .catch((err) => {
+      }
+
+      if (cancelled) return;
+
+      if (resolvedData && resolvedData.success && resolvedData.embedUrl) {
+        setAnimeSaltUrl(resolvedData.embedUrl);
+        setAnimeSaltError(null);
+      } else if (resolvedData && !resolvedData.success) {
+        setAnimeSaltError(
+          resolvedData.error || "Automated retrieval could not locate this episode on AnimeSalt."
+        );
+      } else {
+        setAnimeSaltError(
+          "Automated stream resolution is not available for this host route or provider. Please use the manual embed URL fallback or switch to another server."
+        );
+      }
+    })()
+      .catch(() => {
         if (cancelled) return;
-        setAnimeSaltError(err?.message || "Failed to connect to episode resolver.");
+        setAnimeSaltError(
+          "Unable to auto-retrieve stream. Please enter a manual embed URL or switch to another server."
+        );
       })
       .finally(() => {
         if (!cancelled) setAnimeSaltLoading(false);
