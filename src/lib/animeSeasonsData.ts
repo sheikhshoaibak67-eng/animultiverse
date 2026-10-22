@@ -387,20 +387,233 @@ export const PRESET_ANIME_SEASONS: Record<string, SeasonInfo[]> = {
     { number: 10, name: "Season 10: Sun & Moon / Alola", episodeCount: 43, year: 2016 },
     { number: 11, name: "Season 11: Ultimate Journeys / Horizons", episodeCount: 48, year: 2020 },
   ],
-  "60572": [
-    { number: 1, name: "Season 1: Indigo League", episodeCount: 82, year: 1997 },
-    { number: 2, name: "Season 2: Adventures in the Orange Islands", episodeCount: 36, year: 1999 },
-    { number: 3, name: "Season 3: The Johto Journeys", episodeCount: 41, year: 2000 },
-    { number: 4, name: "Season 4: Advanced Generation / Hoenn", episodeCount: 52, year: 2003 },
-    { number: 5, name: "Season 5: Diamond and Pearl", episodeCount: 52, year: 2006 },
-    { number: 6, name: "Season 6: XY & XYZ / Kalos", episodeCount: 48, year: 2013 },
-    { number: 7, name: "Season 7: Ultimate Journeys / Horizons", episodeCount: 48, year: 2020 },
+  // Black Clover
+  "black-clover": [
+    { number: 1, name: "Season 1: Magic Knights & Eye of the Midnight Sun", episodeCount: 51, year: 2017 },
+    { number: 2, name: "Season 2: Royal Knights & Elf Reincarnation Arc", episodeCount: 51, year: 2018 },
+    { number: 3, name: "Season 3: Heart Kingdom & Spade Kingdom Training", episodeCount: 52, year: 2019 },
+    { number: 4, name: "Season 4: Spade Kingdom Raid Arc", episodeCount: 16, year: 2020 },
+  ],
+  "73223": [
+    { number: 1, name: "Season 1: Magic Knights & Eye of the Midnight Sun", episodeCount: 51, year: 2017 },
+    { number: 2, name: "Season 2: Royal Knights & Elf Reincarnation Arc", episodeCount: 51, year: 2018 },
+    { number: 3, name: "Season 3: Heart Kingdom & Spade Kingdom Training", episodeCount: 52, year: 2019 },
+    { number: 4, name: "Season 4: Spade Kingdom Raid Arc", episodeCount: 16, year: 2020 },
+  ],
+
+  // Baki series
+  "baki": [
+    { number: 1, name: "Season 1: Most Evil Death Row Convicts", episodeCount: 13, year: 2018 },
+    { number: 2, name: "Season 2: Great Raitai Tournament", episodeCount: 13, year: 2020 },
+  ],
+  "80983": [
+    { number: 1, name: "Season 1: Most Evil Death Row Convicts", episodeCount: 13, year: 2018 },
+    { number: 2, name: "Season 2: Great Raitai Tournament", episodeCount: 13, year: 2020 },
+  ],
+  "80623": [
+    { number: 1, name: "Season 1: Most Evil Death Row Convicts", episodeCount: 13, year: 2018 },
+    { number: 2, name: "Season 2: Great Raitai Tournament", episodeCount: 13, year: 2020 },
+  ],
+  "baki-hanma": [
+    { number: 1, name: "Season 1: Combat Shadow Fighting & Prison Arc", episodeCount: 12, year: 2021 },
+    { number: 2, name: "Season 2: The Tale of Pickle & Father-Son Fight", episodeCount: 27, year: 2023 },
+  ],
+  "129600": [
+    { number: 1, name: "Season 1: Combat Shadow Fighting & Prison Arc", episodeCount: 12, year: 2021 },
+    { number: 2, name: "Season 2: The Tale of Pickle & Father-Son Fight", episodeCount: 27, year: 2023 },
+  ],
+  "136315": [
+    { number: 1, name: "Season 1: Combat Shadow Fighting & Prison Arc", episodeCount: 12, year: 2021 },
+    { number: 2, name: "Season 2: The Tale of Pickle & Father-Son Fight", episodeCount: 27, year: 2023 },
+  ],
+  "baki-dou-the-invincible-samurai": [
+    { number: 1, name: "Season 1: The Invincible Samurai", episodeCount: 25, year: 2026 },
+  ],
+  "300054": [
+    { number: 1, name: "Season 1: The Invincible Samurai", episodeCount: 25, year: 2026 },
+  ],
+
+  // Spy x Family
+  "spy-x-family": [
+    { number: 1, name: "Season 1: Part 1 - Operation Strix", episodeCount: 12, year: 2022 },
+    { number: 2, name: "Season 2: Part 2 - Doggy Crisis & WISE", episodeCount: 13, year: 2022 },
+    { number: 3, name: "Season 3: Season 2 (Cruise Adventure)", episodeCount: 12, year: 2023 },
+  ],
+  "120089": [
+    { number: 1, name: "Season 1: Part 1 - Operation Strix", episodeCount: 12, year: 2022 },
+    { number: 2, name: "Season 2: Part 2 - Doggy Crisis & WISE", episodeCount: 13, year: 2022 },
+    { number: 3, name: "Season 3: Season 2 (Cruise Adventure)", episodeCount: 12, year: 2023 },
+  ],
+
+  // Vinland Saga
+  "vinland-saga": [
+    { number: 1, name: "Season 1: War in England & Askeladd Arc", episodeCount: 24, year: 2019 },
+    { number: 2, name: "Season 2: Slave Arc & Ketil's Farm", episodeCount: 24, year: 2023 },
+  ],
+  "84958": [
+    { number: 1, name: "Season 1: War in England & Askeladd Arc", episodeCount: 24, year: 2019 },
+    { number: 2, name: "Season 2: Slave Arc & Ketil's Farm", episodeCount: 24, year: 2023 },
+  ],
+
+  // Mob Psycho 100
+  "mob-psycho-100": [
+    { number: 1, name: "Season 1: Claw Arc", episodeCount: 12, year: 2016 },
+    { number: 2, name: "Season 2: Mogami & World Domination Arc", episodeCount: 13, year: 2019 },
+    { number: 3, name: "Season 3: Divine Tree & Reigen Arc", episodeCount: 12, year: 2022 },
+  ],
+  "67075": [
+    { number: 1, name: "Season 1: Claw Arc", episodeCount: 12, year: 2016 },
+    { number: 2, name: "Season 2: Mogami & World Domination Arc", episodeCount: 13, year: 2019 },
+    { number: 3, name: "Season 3: Divine Tree & Reigen Arc", episodeCount: 12, year: 2022 },
+  ],
+
+  // Haikyuu!!
+  "haikyuu": [
+    { number: 1, name: "Season 1: Karasuno High Volleyball Team", episodeCount: 25, year: 2014 },
+    { number: 2, name: "Season 2: Tokyo Expedition & Spring Tournament", episodeCount: 25, year: 2015 },
+    { number: 3, name: "Season 3: Karasuno High vs. Shiratorizawa", episodeCount: 10, year: 2016 },
+    { number: 4, name: "Season 4: To the Top", episodeCount: 25, year: 2020 },
+  ],
+  "60735": [
+    { number: 1, name: "Season 1: Karasuno High Volleyball Team", episodeCount: 25, year: 2014 },
+    { number: 2, name: "Season 2: Tokyo Expedition & Spring Tournament", episodeCount: 25, year: 2015 },
+    { number: 3, name: "Season 3: Karasuno High vs. Shiratorizawa", episodeCount: 10, year: 2016 },
+    { number: 4, name: "Season 4: To the Top", episodeCount: 25, year: 2020 },
+  ],
+
+  // JoJo's Bizarre Adventure
+  "jojos-bizarre-adventure": [
+    { number: 1, name: "Season 1: Phantom Blood & Battle Tendency", episodeCount: 26, year: 2012 },
+    { number: 2, name: "Season 2: Stardust Crusaders", episodeCount: 48, year: 2014 },
+    { number: 3, name: "Season 3: Diamond is Unbreakable", episodeCount: 39, year: 2016 },
+    { number: 4, name: "Season 4: Golden Wind", episodeCount: 39, year: 2018 },
+    { number: 5, name: "Season 5: Stone Ocean", episodeCount: 38, year: 2021 },
+  ],
+  "45790": [
+    { number: 1, name: "Season 1: Phantom Blood & Battle Tendency", episodeCount: 26, year: 2012 },
+    { number: 2, name: "Season 2: Stardust Crusaders", episodeCount: 48, year: 2014 },
+    { number: 3, name: "Season 3: Diamond is Unbreakable", episodeCount: 39, year: 2016 },
+    { number: 4, name: "Season 4: Golden Wind", episodeCount: 39, year: 2018 },
+    { number: 5, name: "Season 5: Stone Ocean", episodeCount: 38, year: 2021 },
+  ],
+
+  // Re:Zero
+  "re-zero-starting-life-in-another-world": [
+    { number: 1, name: "Season 1: Return by Death", episodeCount: 25, year: 2016 },
+    { number: 2, name: "Season 2: Sanctuary & The Witches of Sin", episodeCount: 25, year: 2020 },
+    { number: 3, name: "Season 3: Priestella & Sin Archbishops", episodeCount: 16, year: 2024 },
+  ],
+  "65942": [
+    { number: 1, name: "Season 1: Return by Death", episodeCount: 25, year: 2016 },
+    { number: 2, name: "Season 2: Sanctuary & The Witches of Sin", episodeCount: 25, year: 2020 },
+    { number: 3, name: "Season 3: Priestella & Sin Archbishops", episodeCount: 16, year: 2024 },
+  ],
+
+  // Classroom of the Elite
+  "classroom-of-the-elite": [
+    { number: 1, name: "Season 1: Class D Evaluation", episodeCount: 12, year: 2017 },
+    { number: 2, name: "Season 2: Island Survival & Sports Festival", episodeCount: 13, year: 2022 },
+    { number: 3, name: "Season 3: Mixed Training Camp & Expulsion", episodeCount: 13, year: 2024 },
+  ],
+  "71987": [
+    { number: 1, name: "Season 1: Class D Evaluation", episodeCount: 12, year: 2017 },
+    { number: 2, name: "Season 2: Island Survival & Sports Festival", episodeCount: 13, year: 2022 },
+    { number: 3, name: "Season 3: Mixed Training Camp & Expulsion", episodeCount: 13, year: 2024 },
+  ],
+
+  // Dr. Stone
+  "dr-stone": [
+    { number: 1, name: "Season 1: Stone World & Kingdom of Science", episodeCount: 24, year: 2019 },
+    { number: 2, name: "Season 2: Stone Wars", episodeCount: 11, year: 2021 },
+    { number: 3, name: "Season 3: New World", episodeCount: 22, year: 2023 },
+  ],
+  "86031": [
+    { number: 1, name: "Season 1: Stone World & Kingdom of Science", episodeCount: 24, year: 2019 },
+    { number: 2, name: "Season 2: Stone Wars", episodeCount: 11, year: 2021 },
+    { number: 3, name: "Season 3: New World", episodeCount: 22, year: 2023 },
+  ],
+
+  // Blue Lock
+  "blue-lock": [
+    { number: 1, name: "Season 1: First & Second Selection", episodeCount: 24, year: 2022 },
+    { number: 2, name: "Season 2: U-20 Japan Match", episodeCount: 14, year: 2024 },
+  ],
+  "135157": [
+    { number: 1, name: "Season 1: First & Second Selection", episodeCount: 24, year: 2022 },
+    { number: 2, name: "Season 2: U-20 Japan Match", episodeCount: 14, year: 2024 },
+  ],
+
+  // Kaiju No. 8
+  "kaiju-no-8": [
+    { number: 1, name: "Season 1: Defense Force Examination", episodeCount: 12, year: 2024 },
+    { number: 2, name: "Season 2: Kaiju Weapon & Catastrophe", episodeCount: 12, year: 2025 },
+  ],
+  "207468": [
+    { number: 1, name: "Season 1: Defense Force Examination", episodeCount: 12, year: 2024 },
+    { number: 2, name: "Season 2: Kaiju Weapon & Catastrophe", episodeCount: 12, year: 2025 },
+  ],
+
+  // Mashle
+  "mashle-magic-and-muscles": [
+    { number: 1, name: "Season 1: Easton Magic Academy", episodeCount: 12, year: 2023 },
+    { number: 2, name: "Season 2: Divine Visionary Candidate Exam", episodeCount: 12, year: 2024 },
+  ],
+  "203713": [
+    { number: 1, name: "Season 1: Easton Magic Academy", episodeCount: 12, year: 2023 },
+    { number: 2, name: "Season 2: Divine Visionary Candidate Exam", episodeCount: 12, year: 2024 },
+  ],
+
+  // Oshi no Ko
+  "oshi-no-ko": [
+    { number: 1, name: "Season 1: Prologue & First Concert", episodeCount: 11, year: 2023 },
+    { number: 2, name: "Season 2: 2.5D Stage Play Arc (Tokyo Blade)", episodeCount: 13, year: 2024 },
+  ],
+  "203701": [
+    { number: 1, name: "Season 1: Prologue & First Concert", episodeCount: 11, year: 2023 },
+    { number: 2, name: "Season 2: 2.5D Stage Play Arc (Tokyo Blade)", episodeCount: 13, year: 2024 },
+  ],
+
+  // Fire Force
+  "fire-force": [
+    { number: 1, name: "Season 1: Special Fire Force Company 8", episodeCount: 24, year: 2019 },
+    { number: 2, name: "Season 2: Netherworld & Pillar Search", episodeCount: 24, year: 2020 },
+  ],
+  "89456": [
+    { number: 1, name: "Season 1: Special Fire Force Company 8", episodeCount: 24, year: 2019 },
+    { number: 2, name: "Season 2: Netherworld & Pillar Search", episodeCount: 24, year: 2020 },
   ],
 };
 
 /**
+ * Calculates start and end indices for each season across the anime's total episode sequence.
+ */
+export function getSeasonEpisodeRanges(seasons: SeasonInfo[]): Array<{
+  seasonNumber: number;
+  seasonName: string;
+  startIdx: number;
+  endIdx: number;
+  count: number;
+}> {
+  let offset = 0;
+  return seasons.map((s) => {
+    const count = Math.max(1, s.episodeCount || 12);
+    const startIdx = offset;
+    const endIdx = offset + count;
+    offset += count;
+    return {
+      seasonNumber: s.number,
+      seasonName: s.name,
+      startIdx,
+      endIdx,
+      count,
+    };
+  });
+}
+
+/**
  * Resolves all seasons for any anime or cartoon.
  * Combines curated arc presets with live TMDB data to ensure every show has complete seasons!
+ * Guarantees that no anime will dump all its episodes into Season 1.
  */
 export function resolveAllSeasons(slugOrId: string | number, tmdbSeasons?: any[]): SeasonInfo[] {
   if (!slugOrId) return [];
@@ -437,7 +650,9 @@ export function resolveAllSeasons(slugOrId: string | number, tmdbSeasons?: any[]
       }));
   }
 
-  // If both exist, choose the one with richer multi-season arc coverage
+  // If a preset exists:
+  // - If TMDB has strictly more seasons than the preset (e.g. One Piece with 23 seasons), prefer TMDB
+  // - Otherwise, prefer the preset (prevents TMDB's collapsed single season bug, e.g. JJK, Solo Leveling, Bleach, Black Clover)
   if (preset && tmdbValid.length > 0) {
     if (tmdbValid.length > preset.length) {
       return tmdbValid;
@@ -446,9 +661,37 @@ export function resolveAllSeasons(slugOrId: string | number, tmdbSeasons?: any[]
   }
 
   if (preset && preset.length > 0) return preset;
+
+  // 3. If no preset, evaluate TMDB seasons:
+  if (tmdbValid.length > 1) {
+    return tmdbValid;
+  }
+
+  // If TMDB only returned 1 season, but it contains more than 26 episodes (e.g. 52 or 75 episodes):
+  // Automatically partition into realistic seasons of ~24 episodes!
+  if (tmdbValid.length === 1 && tmdbValid[0].episodeCount > 26) {
+    const totalEps = tmdbValid[0].episodeCount;
+    const episodesPerSeason = totalEps > 100 ? 50 : totalEps > 50 ? 26 : 24;
+    const numSeasons = Math.ceil(totalEps / episodesPerSeason);
+    const autoSeasons: SeasonInfo[] = [];
+    let remaining = totalEps;
+    for (let s = 1; s <= numSeasons; s++) {
+      const epCount = Math.min(remaining, episodesPerSeason);
+      remaining -= epCount;
+      autoSeasons.push({
+        number: s,
+        name: `Season ${s}`,
+        episodeCount: epCount,
+        poster: tmdbValid[0].poster,
+        year: tmdbValid[0].year,
+      });
+    }
+    return autoSeasons;
+  }
+
   if (tmdbValid.length > 0) return tmdbValid;
 
-  // 3. Fallback for any other multi-season anime: at least 3 full seasons
+  // 4. Fallback for any other multi-season anime: at least 3 full seasons
   return [
     { number: 1, name: "Season 1", episodeCount: 24, year: 2021 },
     { number: 2, name: "Season 2", episodeCount: 24, year: 2023 },

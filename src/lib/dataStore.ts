@@ -490,9 +490,9 @@ export function getGenres(): string[] {
   return Array.from(new Set(animeList.flatMap((a) => a.genres))).sort();
 }
 
-export function findAnime(slugOrId: string): AnimeItem | null {
+export function findAnime(slugOrId: string | number): AnimeItem | null {
   if (!slugOrId) return null;
-  const clean = slugOrId
+  const clean = String(slugOrId)
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
@@ -592,11 +592,63 @@ export function getAnimeBySlug(slugOrId: string): AnimeBundle | null {
   };
 }
 
+export function syncAnimeEpisodes(
+  slugOrId: string | number,
+  seasons: any[],
+  seasonEpisodesMap: Record<number, any[]>
+) {
+  const series = findAnime(slugOrId);
+  if (!series) return;
+
+  if (seasons && seasons.length > 0) {
+    seasonStore[series.id] = seasons.map((s) => ({
+      id: series.id * 100 + s.number,
+      animeId: series.id,
+      number: s.number,
+      name: s.name,
+      poster: s.poster || series.posterImage,
+      episodeCount: s.episodeCount,
+      year: s.year || series.year,
+    }));
+    series.seasonCount = seasons.length;
+  }
+
+  const allEps: EpisodeItem[] = [];
+  for (const [seasonNumStr, eps] of Object.entries(seasonEpisodesMap)) {
+    const sNum = Number(seasonNumStr);
+    if (!Array.isArray(eps)) continue;
+    for (const ep of eps) {
+      allEps.push({
+        id: series.id * 1000 + sNum * 100 + ep.number,
+        animeId: series.id,
+        season: sNum,
+        number: ep.number,
+        absoluteNumber: ep.absoluteNumber || ep.number,
+        title: ep.title,
+        overview: ep.overview,
+        thumb: ep.still || ep.thumb || series.coverImage,
+        videoUrl: ep.videoUrl || VIDEOS[(sNum * 10 + ep.number) % VIDEOS.length],
+        duration: ep.duration || (ep.runtime ? ep.runtime * 60 : 1440),
+        air_date: ep.air_date,
+        runtime: ep.runtime,
+      });
+    }
+  }
+
+  if (allEps.length > 0) {
+    episodeStore[series.id] = allEps;
+    series.totalEpisodes = allEps.length;
+  }
+}
+
 export function getEpisodeBundle(slug: string, season: number, episodeNumber: number): EpisodeBundle | null {
   const bundle = getAnimeBySlug(slug);
   if (!bundle) return null;
 
-  const inSeason = bundle.episodes.filter((e) => e.season === season);
+  let inSeason = bundle.episodes.filter((e) => e.season === season);
+  if (inSeason.length === 0 && bundle.episodes.length > 0) {
+    inSeason = bundle.episodes.filter((e) => e.season === (bundle.seasons[0]?.number || 1));
+  }
   const episode = inSeason.find((e) => e.number === episodeNumber) || inSeason[0];
   if (!episode) return null;
 

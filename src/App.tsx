@@ -629,7 +629,7 @@ export default function App() {
                 }
                 embedVidsrcIcu={
                   watchBundle.series.tmdbId
-                    ? `https://vidsrc.icu/embed/anime/${watchBundle.series.tmdbId}/${watchBundle.episode.number}/0`
+                    ? `https://vidsrc.icu/embed/anime/${watchBundle.series.tmdbId}/${watchBundle.episode.absoluteNumber || watchBundle.episode.number}/0`
                     : null
                 }
                 embedVidsrcSbs={

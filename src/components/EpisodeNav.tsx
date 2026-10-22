@@ -45,8 +45,8 @@ export default function EpisodeNav({
           <ListVideo className="h-4 w-4 text-brand-soft" />
           Episodes
         </h3>
-        <span className="font-mono text-[11px] text-zinc-500">
-          {episodes.length} total
+        <span className="font-mono text-[11px] text-zinc-400">
+          Season {currentSeason} ({episodes.length} eps)
         </span>
       </div>
 

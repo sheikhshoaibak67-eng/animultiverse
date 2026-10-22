@@ -31,7 +31,7 @@ import {
   searchTmdb,
   tmdbImage,
 } from "../lib/tmdb";
-import { findAnime } from "../lib/dataStore";
+import { findAnime, syncAnimeEpisodes } from "../lib/dataStore";
 import { resolveAllSeasons } from "../lib/animeSeasonsData";
 import {
   DEMON_SLAYER_DETAILS,
@@ -360,126 +360,199 @@ export default function TitleDetailPage({
     };
   }, [parsedId, isMovie, isDemonSlayer, titleIdOrSlug]);
 
-  // Load episodes for active season with REAL video frame stills
+  // Load episodes strictly partitioned season-by-season with REAL video frame stills
   useEffect(() => {
     if (isMovie || !parsedId) return;
     if (seasonEpisodes[activeSeason] && seasonEpisodes[activeSeason].length > 0) {
-      return; // Already cached
+      return; // Already cached for this season
     }
 
     let active = true;
     setLoadingEpisodes(true);
 
-    getSeason(parsedId, activeSeason)
-      .then(async (data) => {
-        if (!active) return;
-        let eps = (data.episodes || []).map((ep, idx) => ({
-          season: activeSeason,
-          number: ep.episode_number,
-          title: ep.name || `Episode ${ep.episode_number}`,
-          overview: ep.overview || `Watch Episode ${ep.episode_number} of ${details?.title || catalogItem?.title || "this series"} in high definition.`,
-          still: ep.still_path
-            ? tmdbImage(ep.still_path, "w500")
-            : (showStills[idx % Math.max(showStills.length, 1)] || details?.coverImage || catalogItem?.coverImage || ""),
-          air_date: (ep as any).air_date || "",
-          runtime: ep.runtime || 25,
-        }));
+    async function loadSeasonEpisodes() {
+      try {
+        const currentSeasonMeta = seasons.find((s) => s.number === activeSeason) || seasons[0] || {
+          number: activeSeason,
+          name: `Season ${activeSeason}`,
+          episodeCount: 12,
+        };
 
-        // If Season 2+ returned 0 episodes, check if Season 1 contains subsequent episodes (e.g. JJK where all 47 eps are in Season 1)
-        if (eps.length === 0 && activeSeason > 1) {
-          try {
-            const s1 = await getSeason(parsedId, 1);
-            if (s1.episodes && s1.episodes.length > 20) {
-              const startIdx = (activeSeason - 1) * 24;
-              const sliced = s1.episodes.slice(startIdx, startIdx + 26);
-              if (sliced.length > 0) {
-                eps = sliced.map((ep, idx) => ({
-                  season: activeSeason,
-                  number: idx + 1,
-                  title: ep.name || `Episode ${idx + 1}`,
-                  overview: ep.overview || `Watch Episode ${idx + 1} in full HD.`,
-                  still: ep.still_path
-                    ? tmdbImage(ep.still_path, "w500")
-                    : (showStills[idx % Math.max(showStills.length, 1)] || details?.coverImage || ""),
-                  air_date: (ep as any).air_date || "",
-                  runtime: ep.runtime || 25,
-                }));
-              }
-            }
-          } catch {}
+        // 1. Fetch Season 1 first to check if TMDB has lumped multiple seasons into Season 1
+        // (common in anime like Jujutsu Kaisen 59 eps in S1, Solo Leveling 25 eps in S1, Bleach 366 eps in S1, etc.)
+        let s1Data: any = null;
+        try {
+          s1Data = await getSeason(parsedId, 1);
+        } catch (err) {
+          console.warn("Could not fetch S1:", err);
         }
 
-        if (eps.length > 0) {
-          setSeasonEpisodes((prev) => ({ ...prev, [activeSeason]: eps }));
+        const s1RawEpisodes: any[] = s1Data?.episodes || [];
+        const s1ExpectedCount = seasons[0]?.episodeCount || 24;
+
+        // If Season 1 contains MORE episodes than Season 1's expected count (or multi-seasons worth of episodes)
+        // AND we have multiple seasons defined:
+        if (seasons.length > 1 && s1RawEpisodes.length > s1ExpectedCount) {
+          // TMDB has lumped multiple seasons into Season 1!
+          // We partition ALL seasons right now:
+          const partitioned: Record<number, any[]> = {};
+          let cursor = 0;
+
+          for (let i = 0; i < seasons.length; i++) {
+            const sn = seasons[i];
+            const epCount = sn.episodeCount || 24;
+            const slice = s1RawEpisodes.slice(cursor, cursor + epCount);
+            cursor += epCount;
+
+            if (slice.length > 0) {
+              partitioned[sn.number] = slice.map((ep: any, idx: number) => ({
+                season: sn.number,
+                number: idx + 1, // Episode number within this season (EP 1, EP 2, ...)
+                absoluteNumber: ep.episode_number || (cursor - epCount + idx + 1), // Overall series number (e.g. #25)
+                title: ep.name || `${sn.name} - Episode ${idx + 1}`,
+                overview: ep.overview || `Watch Episode ${idx + 1} of ${sn.name} in full HD.`,
+                still: ep.still_path
+                  ? tmdbImage(ep.still_path, "w500")
+                  : (showStills[idx % Math.max(showStills.length, 1)] || details?.coverImage || catalogItem?.coverImage || ""),
+                air_date: ep.air_date || "",
+                runtime: ep.runtime || 25,
+              }));
+            } else {
+              // Fallback if slice is exhausted
+              partitioned[sn.number] = Array.from({ length: epCount }, (_, idx) => ({
+                season: sn.number,
+                number: idx + 1,
+                absoluteNumber: cursor - epCount + idx + 1,
+                title: `${sn.name} - Episode ${idx + 1}`,
+                overview: `Watch Season ${sn.number} Episode ${idx + 1} of ${details?.title || "this series"} in high definition.`,
+                still: showStills[idx % Math.max(showStills.length, 1)] || details?.coverImage || catalogItem?.coverImage || "",
+                air_date: "",
+                runtime: 25,
+              }));
+            }
+          }
+
+          if (active) {
+            setSeasonEpisodes((prev) => {
+              const updated = { ...prev, ...partitioned };
+              syncAnimeEpisodes(details?.slug || titleIdOrSlug, seasons, updated);
+              return updated;
+            });
+            setLoadingEpisodes(false);
+          }
+          return;
+        }
+
+        // 2. TMDB has distinct seasons (e.g. Demon Slayer, Attack on Titan, One Piece, My Hero Academia, etc.)
+        let targetSeasonData: any = null;
+        if (activeSeason === 1 && s1Data) {
+          targetSeasonData = s1Data;
         } else {
-          // Fallback if no episodes from API
-          const targetSeason = seasons.find((sn) => sn.number === activeSeason);
-          const epCount = targetSeason?.episodeCount || 12;
-          const seasonName = targetSeason?.name || `Season ${activeSeason}`;
-          const fallbackEps = Array.from({ length: epCount }, (_, idx) => ({
-            season: activeSeason,
-            number: idx + 1,
-            title: `${seasonName} - Episode ${idx + 1}`,
-            overview: `Watch Season ${activeSeason} Episode ${idx + 1} of ${details?.title || catalogItem?.title || "this series"} in high definition.`,
-            still: showStills[idx % Math.max(showStills.length, 1)] || details?.coverImage || catalogItem?.coverImage || "",
-            air_date: "",
-            runtime: 25,
-          }));
-          setSeasonEpisodes((prev) => ({ ...prev, [activeSeason]: fallbackEps }));
-        }
-        setLoadingEpisodes(false);
-      })
-      .catch(async (err) => {
-        console.warn(`Could not load season ${activeSeason} episodes:`, err);
-        if (!active) return;
-
-        // Try checking Season 1 for Season 2+ episodes
-        if (activeSeason > 1) {
           try {
-            const s1 = await getSeason(parsedId, 1);
-            if (s1.episodes && s1.episodes.length > 20) {
-              const startIdx = (activeSeason - 1) * 24;
-              const sliced = s1.episodes.slice(startIdx, startIdx + 26);
-              if (sliced.length > 0) {
-                const eps = sliced.map((ep, idx) => ({
-                  season: activeSeason,
-                  number: idx + 1,
-                  title: ep.name || `Episode ${idx + 1}`,
-                  overview: ep.overview || `Watch Episode ${idx + 1} in full HD.`,
-                  still: ep.still_path
-                    ? tmdbImage(ep.still_path, "w500")
-                    : (showStills[idx % Math.max(showStills.length, 1)] || details?.coverImage || ""),
-                  air_date: (ep as any).air_date || "",
-                  runtime: ep.runtime || 25,
-                }));
-                setSeasonEpisodes((prev) => ({ ...prev, [activeSeason]: eps }));
-                setLoadingEpisodes(false);
-                return;
-              }
-            }
-          } catch {}
+            targetSeasonData = await getSeason(parsedId, activeSeason);
+          } catch (err) {
+            console.warn(`TMDB /tv/${parsedId}/season/${activeSeason} error:`, err);
+          }
         }
 
-        const targetSeason = seasons.find((sn) => sn.number === activeSeason);
-        const epCount = targetSeason?.episodeCount || 12;
-        const seasonName = targetSeason?.name || `Season ${activeSeason}`;
+        const rawEpisodes = targetSeasonData?.episodes || [];
+        if (rawEpisodes.length > 0) {
+          // If this season has distinct episodes, restrict them to this season's boundary if needed
+          const maxCount = currentSeasonMeta.episodeCount > 0 ? currentSeasonMeta.episodeCount : rawEpisodes.length;
+          const seasonEps = rawEpisodes.slice(0, maxCount).map((ep: any, idx: number) => ({
+            season: activeSeason,
+            number: ep.episode_number || (idx + 1),
+            absoluteNumber: ep.episode_number,
+            title: ep.name || `Episode ${ep.episode_number || (idx + 1)}`,
+            overview: ep.overview || `Watch Episode ${ep.episode_number || (idx + 1)} of ${details?.title || catalogItem?.title || "this series"} in high definition.`,
+            still: ep.still_path
+              ? tmdbImage(ep.still_path, "w500")
+              : (showStills[idx % Math.max(showStills.length, 1)] || details?.coverImage || catalogItem?.coverImage || ""),
+            air_date: ep.air_date || "",
+            runtime: ep.runtime || 25,
+          }));
+
+          if (active) {
+            setSeasonEpisodes((prev) => {
+              const updated = { ...prev, [activeSeason]: seasonEps };
+              syncAnimeEpisodes(details?.slug || titleIdOrSlug, seasons, updated);
+              return updated;
+            });
+            setLoadingEpisodes(false);
+          }
+          return;
+        }
+
+        // 3. If no episodes were returned for activeSeason > 1, check if S1 had enough episodes to slice from
+        if (activeSeason > 1 && s1RawEpisodes.length > 0) {
+          let offset = 0;
+          for (let i = 0; i < seasons.length; i++) {
+            if (seasons[i].number === activeSeason) break;
+            offset += seasons[i].episodeCount || 24;
+          }
+          const epCount = currentSeasonMeta.episodeCount || 12;
+          const slice = s1RawEpisodes.slice(offset, offset + epCount);
+
+          if (slice.length > 0) {
+            const slicedEps = slice.map((ep: any, idx: number) => ({
+              season: activeSeason,
+              number: idx + 1,
+              absoluteNumber: ep.episode_number || (offset + idx + 1),
+              title: ep.name || `Episode ${idx + 1}`,
+              overview: ep.overview || `Watch Episode ${idx + 1} of ${currentSeasonMeta.name} in full HD.`,
+              still: ep.still_path
+                ? tmdbImage(ep.still_path, "w500")
+                : (showStills[idx % Math.max(showStills.length, 1)] || details?.coverImage || ""),
+              air_date: ep.air_date || "",
+              runtime: ep.runtime || 25,
+            }));
+
+            if (active) {
+              setSeasonEpisodes((prev) => {
+                const updated = { ...prev, [activeSeason]: slicedEps };
+                syncAnimeEpisodes(details?.slug || titleIdOrSlug, seasons, updated);
+                return updated;
+              });
+              setLoadingEpisodes(false);
+            }
+            return;
+          }
+        }
+
+        // 4. Fallback for this season if no TMDB episodes exist
+        const epCount = currentSeasonMeta.episodeCount || 12;
+        const seasonName = currentSeasonMeta.name || `Season ${activeSeason}`;
         const fallbackEps = Array.from({ length: epCount }, (_, idx) => ({
           season: activeSeason,
           number: idx + 1,
+          absoluteNumber: idx + 1,
           title: `${seasonName} - Episode ${idx + 1}`,
           overview: `Watch Season ${activeSeason} Episode ${idx + 1} of ${details?.title || catalogItem?.title || "this series"} in high definition.`,
           still: showStills[idx % Math.max(showStills.length, 1)] || details?.coverImage || catalogItem?.coverImage || "",
           air_date: "",
           runtime: 25,
         }));
-        setSeasonEpisodes((prev) => ({ ...prev, [activeSeason]: fallbackEps }));
-        setLoadingEpisodes(false);
-      });
+
+        if (active) {
+          setSeasonEpisodes((prev) => {
+            const updated = { ...prev, [activeSeason]: fallbackEps };
+            syncAnimeEpisodes(details?.slug || titleIdOrSlug, seasons, updated);
+            return updated;
+          });
+          setLoadingEpisodes(false);
+        }
+      } catch (err) {
+        console.warn("Episode loading error:", err);
+        if (active) setLoadingEpisodes(false);
+      }
+    }
+
+    loadSeasonEpisodes();
 
     return () => {
       active = false;
     };
-  }, [parsedId, activeSeason, isMovie, details?.title, catalogItem?.title, showStills]);
+  }, [parsedId, activeSeason, isMovie, seasons, details?.title, catalogItem?.title, showStills]);
 
   // Filter and sort episodes
   const displayedEpisodes = useMemo(() => {
@@ -912,8 +985,13 @@ export default function TitleDetailPage({
                       />
 
                       {/* Top Left: EP Badge */}
-                      <div className="absolute top-2.5 left-2.5 px-2.5 py-0.5 rounded-md bg-black/80 backdrop-blur-md text-[11px] font-black text-white tracking-wide shadow-md">
-                        EP {ep.number}
+                      <div className="absolute top-2.5 left-2.5 px-2.5 py-0.5 rounded-md bg-black/85 backdrop-blur-md text-[11px] font-black text-white tracking-wide shadow-md flex items-center gap-1.5 border border-white/10">
+                        <span>EP {ep.number}</span>
+                        {ep.absoluteNumber && ep.absoluteNumber !== ep.number && (
+                          <span className="text-[9px] font-bold text-amber-400">
+                            (#{ep.absoluteNumber})
+                          </span>
+                        )}
                       </div>
 
                       {/* Bottom Right: Duration Badge */}
@@ -942,7 +1020,7 @@ export default function TitleDetailPage({
 
                       {/* Footer Row: Air Date + Download Icon */}
                       <div className="flex items-center justify-between pt-3 mt-3 border-t border-zinc-800/60 text-xs text-zinc-500 font-medium">
-                        <span>{ep.air_date ? `Aired ${ep.air_date}` : `Season ${ep.season}`}</span>
+                        <span>{ep.air_date ? `Aired ${ep.air_date}` : `Season ${ep.season} • EP ${ep.number}`}</span>
                         <button
                           type="button"
                           title="Download episode"

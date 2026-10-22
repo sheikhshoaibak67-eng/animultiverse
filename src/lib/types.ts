@@ -38,11 +38,14 @@ export type EpisodeItem = {
   animeId: number;
   season: number;
   number: number;
+  absoluteNumber?: number;
   title: string;
   overview: string;
   thumb: string;
   videoUrl: string;
   duration: number; // in seconds
+  air_date?: string;
+  runtime?: number;
 };
 
 export type CastItem = {
