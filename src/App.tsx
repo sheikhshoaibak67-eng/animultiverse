@@ -620,6 +620,11 @@ export default function App() {
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
             <div className="space-y-5">
               <WatchPlayer
+                animeTitle={watchBundle.series.title}
+                season={watchBundle.episode.season}
+                episode={watchBundle.episode.number}
+                tmdbId={watchBundle.series.tmdbId}
+                type={watchBundle.series.type}
                 embedTgvid={
                   watchBundle.series.tmdbId
                     ? watchBundle.series.type === "Movie"

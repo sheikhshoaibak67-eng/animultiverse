@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { MonitorPlay, Zap, ExternalLink, Plus, Check } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { MonitorPlay, Zap, ExternalLink, Plus, Check, Loader2, AlertCircle, RefreshCw } from "lucide-react";
 import VideoPlayer from "./VideoPlayer";
 import { cn } from "../lib/utils";
 
@@ -23,6 +23,12 @@ type DemoProps = {
 };
 
 export default function WatchPlayer({
+  animeTitle,
+  season,
+  episode,
+  tmdbId,
+  type,
+  embedAnimeSalt,
   embedTgvid,
   embedVidsrcIcu,
   embedVidsrcSbs,
@@ -30,6 +36,12 @@ export default function WatchPlayer({
   embedAutoembed,
   demo,
 }: {
+  animeTitle?: string;
+  season?: number;
+  episode?: number;
+  tmdbId?: number;
+  type?: string;
+  embedAnimeSalt?: string | null;
   embedTgvid?: string | null;
   embedVidsrcIcu?: string | null;
   embedVidsrcSbs?: string | null;
@@ -43,17 +55,81 @@ export default function WatchPlayer({
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [customInputDraft, setCustomInputDraft] = useState(customServerUrl);
 
+  // AnimeSalt automated resolution state
+  const [animeSaltUrl, setAnimeSaltUrl] = useState<string | null>(embedAnimeSalt || null);
+  const [animeSaltLoading, setAnimeSaltLoading] = useState(false);
+  const [animeSaltError, setAnimeSaltError] = useState<string | null>(null);
+  const [manualFallbackUrl, setManualFallbackUrl] = useState<string>("");
+  const [manualFallbackDraft, setManualFallbackDraft] = useState<string>("");
+  const [resolveAttempt, setResolveAttempt] = useState(0);
+
+  // Auto-resolve AnimeSalt stream URL when anime or episode changes
+  useEffect(() => {
+    if (embedAnimeSalt) {
+      setAnimeSaltUrl(embedAnimeSalt);
+      setAnimeSaltError(null);
+      setAnimeSaltLoading(false);
+      return;
+    }
+
+    if (!animeTitle) return;
+
+    let cancelled = false;
+    setAnimeSaltLoading(true);
+    setAnimeSaltError(null);
+
+    const queryParams = new URLSearchParams({
+      title: animeTitle,
+      season: String(season || 1),
+      episode: String(episode || 1),
+      ...(tmdbId ? { tmdbId: String(tmdbId) } : {}),
+      ...(type ? { type } : {}),
+    });
+
+    fetch(`/api/anime-source/animesalt?${queryParams}`)
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+        return res.json();
+      })
+      .then((data) => {
+        if (cancelled) return;
+        if (data.success && data.embedUrl) {
+          setAnimeSaltUrl(data.embedUrl);
+          setAnimeSaltError(null);
+        } else {
+          setAnimeSaltError(data.error || "Automated retrieval could not locate this episode on animultiverse.");
+        }
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setAnimeSaltError(err?.message || "Failed to connect to episode resolver.");
+      })
+      .finally(() => {
+        if (!cancelled) setAnimeSaltLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [animeTitle, season, episode, tmdbId, type, embedAnimeSalt, resolveAttempt]);
+
+  // Server definitions - animultiverse is default server
   const servers = [
-    ...(embedTgvid ? [{ id: "tgvid", label: "Server 1 (TGVID)", tag: "TGVID • Ultra Fast HD Player" }] : []),
-    ...(embedVidsrcIcu ? [{ id: "vidsrc-icu", label: "Server 2 (AniMovie)", tag: "VidSrc ICU • Sub/Dub HD" }] : []),
-    ...(embedVidsrcSbs ? [{ id: "vidsrc-sbs", label: "Server 3 (VidSrc SBS)", tag: "VidSrc SBS • Multi-Server" }] : []),
-    ...(embedVidsrcMe ? [{ id: "vidsrc-me", label: "Server 4 (VidSrc Me)", tag: "VidSrc Me • High Speed" }] : []),
-    ...(embedAutoembed ? [{ id: "autoembed", label: "Server 5 (AutoEmbed)", tag: "AutoEmbed Stream" }] : []),
+    {
+      id: "animesalt",
+      label: "Server 1 (animultiverse)",
+      tag: "animultiverse • Ravok HD Player (Default)",
+    },
+    ...(embedTgvid ? [{ id: "tgvid", label: "Server 2 (TGVID)", tag: "TGVID • Ultra Fast HD Player" }] : []),
+    ...(embedVidsrcIcu ? [{ id: "vidsrc-icu", label: "Server 3 (AniMovie)", tag: "VidSrc ICU • Sub/Dub HD" }] : []),
+    ...(embedVidsrcSbs ? [{ id: "vidsrc-sbs", label: "Server 4 (VidSrc SBS)", tag: "VidSrc SBS • Multi-Server" }] : []),
+    ...(embedVidsrcMe ? [{ id: "vidsrc-me", label: "Server 5 (VidSrc Me)", tag: "VidSrc Me • High Speed" }] : []),
+    ...(embedAutoembed ? [{ id: "autoembed", label: "Server 6 (AutoEmbed)", tag: "AutoEmbed Stream" }] : []),
     ...(customServerUrl ? [{ id: "custom", label: "Custom Server", tag: "User Added Server Stream" }] : []),
     { id: "demo", label: "Backup Player", tag: "High-Speed Demo Stream" },
   ];
 
-  const [active, setActive] = useState(servers[0]?.id || "demo");
+  const [active, setActive] = useState<string>("animesalt");
 
   const handleSaveCustom = (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,8 +142,21 @@ export default function WatchPlayer({
     }
   };
 
+  const handleManualFallbackSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = manualFallbackDraft.trim();
+    if (trimmed) {
+      setManualFallbackUrl(trimmed);
+      setAnimeSaltError(null);
+    }
+  };
+
+  const effectiveAnimeSaltEmbed = manualFallbackUrl.trim() || animeSaltUrl;
+
   const embedUrl = (() => {
     switch (active) {
+      case "animesalt":
+        return effectiveAnimeSaltEmbed;
       case "tgvid":
         return embedTgvid;
       case "vidsrc-icu":
@@ -152,7 +241,7 @@ export default function WatchPlayer({
                   setCustomInputDraft("");
                   localStorage.removeItem("aniverse_custom_server");
                   setShowCustomInput(false);
-                  setActive("demo");
+                  setActive("animesalt");
                 }}
                 className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-zinc-400 hover:text-red-400 cursor-pointer"
               >
@@ -165,7 +254,8 @@ export default function WatchPlayer({
         {active !== "demo" && (
           <div className="mt-2 flex flex-wrap items-center justify-between gap-2 px-1 text-[11px] text-zinc-500">
             <span>
-              Streaming via active mirror. If an embed is restricted by ad-blocker, switch to Backup Player.
+              Streaming via active mirror ({active === "animesalt" ? "animultiverse Source" : "Direct Mirror"}).
+              Switch servers if blocked or buffering.
             </span>
             {embedUrl && (
               <a
@@ -182,7 +272,77 @@ export default function WatchPlayer({
         )}
       </div>
 
-      {/* Embed player or VideoPlayer */}
+      {/* ACTIVE: animultiverse loading state */}
+      {active === "animesalt" && animeSaltLoading && !effectiveAnimeSaltEmbed && (
+        <div className="relative aspect-video w-full flex flex-col items-center justify-center rounded-2xl border border-white/10 bg-zinc-950 p-6 text-center shadow-2xl">
+          <Loader2 className="h-10 w-10 animate-spin text-brand" />
+          <h3 className="mt-4 font-display text-base font-bold text-white">Loading animultiverse Episode Source</h3>
+          <p className="mt-1 text-xs text-zinc-400 max-w-sm">
+            Searching animultiverse and extracting authorized player embed for {animeTitle || "anime"} S{season || 1}:E{episode || 1}...
+          </p>
+        </div>
+      )}
+
+      {/* ACTIVE: animultiverse error & manual fallback state */}
+      {active === "animesalt" && !animeSaltLoading && !effectiveAnimeSaltEmbed && animeSaltError && (
+        <div className="relative aspect-video w-full flex flex-col items-center justify-center rounded-2xl border border-white/10 bg-zinc-950/95 p-6 text-center shadow-2xl">
+          <AlertCircle className="h-10 w-10 text-amber-500 mb-2" />
+          <h3 className="font-display text-base font-bold text-white">animultiverse Source Notice</h3>
+          <p className="mt-1 max-w-md text-xs text-zinc-400">
+            {animeSaltError}
+          </p>
+
+          {/* Manual Embed Fallback Form */}
+          <div className="mt-4 w-full max-w-md rounded-xl border border-white/10 bg-white/[0.02] p-3 text-left">
+            <label className="text-[11px] font-semibold text-zinc-300 block mb-1">
+              Manual Embed URL Fallback
+            </label>
+            <form onSubmit={handleManualFallbackSubmit} className="flex items-center gap-2">
+              <input
+                type="url"
+                placeholder="e.g. https://ravok.buzz/video/..."
+                value={manualFallbackDraft}
+                onChange={(e) => setManualFallbackDraft(e.target.value)}
+                className="flex-1 rounded-lg border border-white/15 bg-black px-3 py-1.5 text-xs text-white placeholder-zinc-500 focus:border-brand focus:outline-none"
+              />
+              <button
+                type="submit"
+                className="rounded-lg bg-brand px-3 py-1.5 text-xs font-bold text-white hover:bg-brand-deep cursor-pointer"
+              >
+                Load
+              </button>
+            </form>
+            <span className="text-[10px] text-zinc-500 mt-1 block">
+              Enter any supported embed player URL to stream this episode directly in the player.
+            </span>
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+            <button
+              onClick={() => setResolveAttempt((v) => v + 1)}
+              className="flex items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs text-zinc-300 hover:bg-white/15 cursor-pointer"
+            >
+              <RefreshCw className="h-3 w-3" /> Retry Auto-Fetch
+            </button>
+            {embedTgvid && (
+              <button
+                onClick={() => setActive("tgvid")}
+                className="rounded-full bg-brand px-3.5 py-1 text-xs font-bold text-white hover:bg-brand-deep cursor-pointer"
+              >
+                Switch to Server 2 (TGVID)
+              </button>
+            )}
+            <button
+              onClick={() => setActive("demo")}
+              className="rounded-full bg-white/10 px-3.5 py-1 text-xs text-zinc-200 hover:bg-white/20 cursor-pointer"
+            >
+              Use Backup Player
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Embed player iframe or VideoPlayer */}
       {active !== "demo" && embedUrl ? (
         <div className="relative aspect-video w-full overflow-hidden rounded-2xl border border-white/10 bg-black shadow-2xl">
           <iframe
@@ -196,9 +356,9 @@ export default function WatchPlayer({
             className="absolute inset-0 h-full w-full border-0"
           />
         </div>
-      ) : (
+      ) : active === "demo" ? (
         <VideoPlayer {...demo} />
-      )}
+      ) : null}
     </div>
   );
 }
