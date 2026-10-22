@@ -17,7 +17,11 @@ export default defineConfig(() => {
         name: 'api-anime-source',
         configureServer(server) {
           server.middlewares.use(async (req, res, next) => {
-            if (req.url && req.url.startsWith('/api/anime-source/animesalt')) {
+            if (
+              req.url &&
+              (req.url.startsWith('/api/anime-source/animesalt') ||
+                req.url.startsWith('/.netlify/functions/animesalt'))
+            ) {
               try {
                 const parsedUrl = new URL(req.url, 'http://localhost:3000');
                 const title = parsedUrl.searchParams.get('title') || '';

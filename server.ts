@@ -22,7 +22,7 @@ app.get('/healthz', (_req: Request, res: Response) => {
 });
 
 // AnimeSalt episode source resolution API
-app.get('/api/anime-source/animesalt', async (req: Request, res: Response) => {
+app.get(['/api/anime-source/animesalt', '/.netlify/functions/animesalt'], async (req: Request, res: Response) => {
   try {
     const title = String(req.query.title || '');
     const season = Number(req.query.season) || 1;
